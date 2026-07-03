@@ -128,7 +128,7 @@ void Client::receiveMsg() {
 
     ui->msgInfo->addItem(msg.mid(1));
     // 判断消息类型
-    if(flag == SERVER_CLOSE) {   // 服务器关闭
+    if(flag == SERVER_CLOSE || flag == SERVER_KICK) {   // 服务器关闭或者被踢出
         on_disConnectBtn_clicked();     // 断开连接
     }
 

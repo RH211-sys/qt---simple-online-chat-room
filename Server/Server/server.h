@@ -18,11 +18,13 @@
 #include <QSet>
 #include <QRandomGenerator>
 #include <QSqlQuery>
+#include <QStringListModel>
 
 #define HISTORY_RECORD "0"
 #define CHAT_INFO "1"
 #define PUNPING_INFO "2"
 #define SERVER_CLOSE "3"
+#define SERVER_KICK "4"
 
 
 QT_BEGIN_NAMESPACE
@@ -48,16 +50,18 @@ public slots:
     void on_btnLogClear_clicked();
     void on_btnKick_clicked();      // 踢出按钮点击
     void on_btnSerMsgLimit_clicked(); // 设置最大消息数量
-    // 网络槽函数
+    // 网络函数
     void handleConnect();       // 处理用户连接
     void handleDisConnect(QTcpSocket *cli);    // 处理下线
     void receiveCliMsg(QByteArray content, QTcpSocket* cli);   // 广播信号
     void broadCast(QByteArray content, QTcpSocket* cli);   // 广播消息
     void broadCast(QString content, QTcpSocket* cli);      // 广播消息重载
     void broadCast(QString content);
+    void tellPointedUser(QString content, QTcpSocket* cli, QString state);     // 向指定用户发送数据
 
 private:
     void flushDB();     // 用于刷新数据库，可能在其他函数中调用
+    void cli_cnt_change(int x);     // 加客户端
 
 private:
     Ui::Server *ui;     // 服务器的UI组件
@@ -67,14 +71,21 @@ private:
     QTcpServer *server;  // Tcp服务器对象
     QMap<QTcpSocket *, QThread *> client_group;
     QMap<QTcpSocket *, QString> client_name;
-    QSet<QTcpSocket *> client_firstBag_set;
+    QMap<QString, QTcpSocket *> name_to_ip;     // 反射
+
+    QSet<QTcpSocket *> client_firstBag_set;     // 首次发包前的缓存
 
     // 数据库操作相关对象
     QSqlDatabase chatDB;
     QSqlTableModel *chatTableModel;
 
+    // 当前在线用户
+    QStringListModel *chaterModel;
+    QStringList chaterList;
+
     int N = 5;    // 数据表的最大历史信息条数(启动后默认是5)
     const quint16 ser_port = 12345;     // 监听端口
+    int cli_cnt = 0;    // 连接的客户端个数
 
 
 

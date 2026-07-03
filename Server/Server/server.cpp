@@ -19,6 +19,17 @@ void Server::flushDB() {
     chatTableModel->select();
 }
 
+/*
+ * 这里把加客户端和减客户端单独封装函数的原因如下：
+ * 1. 解耦：因为很多其他函数都要调这个，在工程变大后如果其他函数的++和--写错了会比较难找，而这里可以直接把问题定位在这个小模块
+ * 2. 扩展性：后续可能会有 +x后出现什么事件，-x后出现什么事件，这样写可以增强工程的扩展性(虽然目前来看用不到)
+ * 3. 方便调试
+ * */
+void Server::cli_cnt_change(int x) {
+    cli_cnt += x;
+    ui->curChatersCnt->setText("当前在线人数：" + QString::number(cli_cnt));
+}
+
 
 /*
  * 构造函数
@@ -26,6 +37,7 @@ void Server::flushDB() {
  */
 Server::Server(QWidget *parent) : QWidget(parent), ui(new Ui::Server) {
     ui->setupUi(this);
+    cli_cnt = 0;
     // 完成网络初始化
     server = new QTcpServer(this);
     server->listen(QHostAddress::AnyIPv4, ser_port);    // 服务器监听
@@ -54,6 +66,10 @@ Server::Server(QWidget *parent) : QWidget(parent), ui(new Ui::Server) {
     chatTableModel->setTable("chat_record");
     chatTableModel->setEditStrategy(QSqlTableModel::OnManualSubmit);
     chatTableModel->select();
+    // 绑定在线用户
+    chaterModel = new QStringListModel(this);
+    ui->logChatersInfo->setModel(chaterModel);
+
     // 绑定View
     ui->chatInfo->setModel(chatTableModel);
     // 初始化刷新调试
@@ -146,6 +162,9 @@ void Server::handleConnect() {
     this->client_group.insert(cli, cli_thread);
     this->client_firstBag_set.insert(cli);
     cli_thread->start();
+
+    // 增客户端调用
+    cli_cnt_change(1);
 }
 
 // 处理接收到的用户的数据，需要放到数据库并广播
@@ -157,10 +176,17 @@ void Server::receiveCliMsg(QByteArray content, QTcpSocket* cli) {
     // 如果是第一个数据包，那么这个数据包是用户的name，需要存起来
     auto it = client_firstBag_set.find(cli);
     if(it != client_firstBag_set.end()) {
+        // 注册用户名+随机值
         int id = QRandomGenerator::global()->bounded(1000, 10000);
         QString cli_name = msg + '#' + QString::number(id);
+        // 插入到红黑树和缓存
         this->client_name.insert(cli, cli_name);
         client_firstBag_set.erase(it);
+        name_to_ip.insert(cli_name, cli);
+        // 更新服务端的列表ui
+        chaterList.append(client_name[cli]);
+        chaterModel->setStringList(chaterList);
+        // 写入日志并广播
         writeLog(QString (client_name[cli] + '[' + cli->peerAddress().toString() + "] 加入了聊天室"));
         broadCast(QString(CHAT_INFO + client_name[cli] + " 加入了聊天室"));
         return;
@@ -175,6 +201,12 @@ void Server::receiveCliMsg(QByteArray content, QTcpSocket* cli) {
 
 void Server::writeLog(QString text) {
     ui->logInfo->addItem(text);
+}
+
+// 服务器向指定客户端发送数据
+void Server::tellPointedUser(QString content, QTcpSocket *cli, QString state) {
+    QByteArray msg = (state + "服务器通知: " + content).toUtf8();
+    cli->write(msg);
 }
 
 // 不需要在调用前加聊天类型
@@ -206,8 +238,12 @@ void Server::broadCast(QString content) {
 }
 
 void Server::handleDisConnect(QTcpSocket *cli) {
+
+    // 获取用户名
+    QString user = client_name[cli];
     // 广播用户的下线消息
-    QString content = client_name[cli] + " 已下线";
+
+    QString content = user + " 已下线";
     broadCast(CHAT_INFO + content);
 
     // 删除在用户组的该用户的相关数据缓存
@@ -217,6 +253,11 @@ void Server::handleDisConnect(QTcpSocket *cli) {
     if(itIP != client_name.end()) client_name.erase(itIP);
 
     writeLog("已完成用户下线处理");
+
+    // 减客户端调用
+    chaterList.removeOne(user);
+    chaterModel->setStringList(chaterList);
+    cli_cnt_change(-1);
 }
 
 void Server::on_btnLogClear_clicked() {
@@ -228,7 +269,32 @@ void Server::on_btnLogClear_clicked() {
     通过获取EditLimit中的用户名，来进行kick
  */
 void Server::on_btnKick_clicked() {
+    QString name = ui->kickPerson->text();
+    if(name_to_ip.find(name) == name_to_ip.end()) {
+        // 没有找到要踢的人
+        ui->kickState->setText("状态：没有找到人");
+        return;
+    }
+    // 获取这个用户的ip,然后告诉他他被踢了
+    QTcpSocket* it = name_to_ip[name];
+    tellPointedUser("你已被服务端踢出聊天室", it, SERVER_KICK);
 
+    // 结束这个客户端的线程和worker
+    client_group[it]->quit();
+    client_group[it]->wait();
+
+    // 清理红黑树上的it
+    client_group.erase(client_group.find(it));
+    client_name.erase((client_name.find(it)));
+    ui->kickState->setText("状态：已踢出");
+
+    chaterList.removeOne(name);
+    chaterModel->setStringList(chaterList);
+
+    // 广播所有人
+    QString content = name + "已被踢出了聊天室！！！";
+    broadCast(content);
+    cli_cnt_change(-1);
 }
 
 /*
@@ -246,3 +312,7 @@ void Server::on_btnSerMsgLimit_clicked() {
     }
     flushDB();
 }
+
+
+
+

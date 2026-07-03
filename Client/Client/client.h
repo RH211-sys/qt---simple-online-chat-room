@@ -22,6 +22,7 @@
 #define CHAT_INFO "1"
 #define PUNPING_INFO "2"
 #define SERVER_CLOSE "3"
+#define SERVER_KICK "4"
 
 
 QT_BEGIN_NAMESPACE
@@ -43,7 +44,7 @@ public slots:
 
     void isConnected(); // 连接后的槽函数
     void sendHeartPing();      // 连接后发送心跳包
-    void receiveMsg();      // 接收服务器的广播
+    void receiveMsg();      // 接收服务器的消息
 public:
     bool eventFilter(QObject *obj, QEvent *event) override;
 
