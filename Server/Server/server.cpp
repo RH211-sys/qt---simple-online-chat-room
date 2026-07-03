@@ -195,3 +195,23 @@ void Server::handleDisConnect(QTcpSocket *cli) {
 
     writeLog("已完成用户下线处理");
 }
+
+void Server::on_btnLogClear_clicked() {
+    ui->logInfo->clear();
+    ui->logInfo->update();
+}
+
+/*
+    通过获取EditLimit中的用户名，来进行kick
+ */
+void Server::on_btnKick_clicked() {
+
+}
+
+/*
+    通过输入的n，来设置数据库的最大消息数
+*/
+
+void Server::on_btnSerMsgLimit_click() {
+
+}

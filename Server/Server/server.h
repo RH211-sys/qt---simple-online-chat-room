@@ -45,6 +45,9 @@ public slots:
     // 按钮槽函数
     void on_btnDBReset_clicked();
     void on_btnSerClose_clicked();
+    void on_btnLogClear_clicked();
+    void on_btnKick_clicked();
+    void on_btnSerMsgLimit_click();
     // 网络槽函数
     void handleConnect();       // 处理用户连接
     void handleDisConnect(QTcpSocket *cli);    // 处理下线
@@ -67,7 +70,7 @@ private:
     QSqlDatabase chatDB;
     QSqlTableModel *chatTableModel;
 
-    const int N = 5;    // 数据表的最大历史信息条数
+    int N = 5;    // 数据表的最大历史信息条数(启动后默认是5)
     const quint16 ser_port = 12345;     // 监听端口
 
 

@@ -13,7 +13,7 @@
   <property name="windowTitle">
    <string>Server</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout">
+  <layout class="QVBoxLayout" name="verticalLayout_4">
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="5,3">
      <item>
@@ -33,9 +33,23 @@
     </layout>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,5">
+    <layout class="QHBoxLayout" name="horizontalLayout" stretch="1,2">
      <item>
-      <widget class="QListWidget" name="logInfo"/>
+      <layout class="QVBoxLayout" name="verticalLayout" stretch="10,1,7">
+       <item>
+        <widget class="QListWidget" name="logInfo"/>
+       </item>
+       <item>
+        <widget class="QLabel" name="curChatersCnt">
+         <property name="text">
+          <string>在线聊天人数：</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QListView" name="logChatersInfo"/>
+       </item>
+      </layout>
      </item>
      <item>
       <widget class="QTableView" name="chatInfo"/>
@@ -43,20 +57,90 @@
     </layout>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="3,5">
+    <layout class="QHBoxLayout" name="horizontalLayout_6">
      <item>
-      <widget class="QPushButton" name="btnSerClose">
-       <property name="text">
-        <string>关闭服务器</string>
-       </property>
-      </widget>
+      <layout class="QVBoxLayout" name="verticalLayout_2">
+       <item>
+        <widget class="QPushButton" name="btnKick">
+         <property name="text">
+          <string>踢出</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btnSerMsgLimit">
+         <property name="text">
+          <string>设置消息数上线</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btnSerClose">
+         <property name="text">
+          <string>关闭服务器</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
      <item>
-      <widget class="QPushButton" name="btnDBReset">
-       <property name="text">
-        <string>重置数据库</string>
-       </property>
-      </widget>
+      <layout class="QVBoxLayout" name="verticalLayout_3">
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="2,5">
+         <property name="spacing">
+          <number>10</number>
+         </property>
+         <item>
+          <widget class="QLineEdit" name="kickPerson"/>
+         </item>
+         <item>
+          <widget class="QLabel" name="kickState">
+           <property name="text">
+            <string>状态</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_4" stretch="2,5">
+         <property name="spacing">
+          <number>10</number>
+         </property>
+         <item>
+          <widget class="QLineEdit" name="msgNumEdit"/>
+         </item>
+         <item>
+          <widget class="QLabel" name="msgNumState">
+           <property name="text">
+            <string>状态</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_5">
+         <property name="rightMargin">
+          <number>200</number>
+         </property>
+         <item>
+          <widget class="QPushButton" name="btnLogClear">
+           <property name="text">
+            <string>清除日志缓存</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btnDBReset">
+           <property name="text">
+            <string>重置数据库</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
      </item>
     </layout>
    </item>
