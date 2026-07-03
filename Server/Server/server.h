@@ -46,8 +46,8 @@ public slots:
     void on_btnDBReset_clicked();
     void on_btnSerClose_clicked();
     void on_btnLogClear_clicked();
-    void on_btnKick_clicked();
-    void on_btnSerMsgLimit_click();
+    void on_btnKick_clicked();      // 踢出按钮点击
+    void on_btnSerMsgLimit_clicked(); // 设置最大消息数量
     // 网络槽函数
     void handleConnect();       // 处理用户连接
     void handleDisConnect(QTcpSocket *cli);    // 处理下线
@@ -55,6 +55,9 @@ public slots:
     void broadCast(QByteArray content, QTcpSocket* cli);   // 广播消息
     void broadCast(QString content, QTcpSocket* cli);      // 广播消息重载
     void broadCast(QString content);
+
+private:
+    void flushDB();     // 用于刷新数据库，可能在其他函数中调用
 
 private:
     Ui::Server *ui;     // 服务器的UI组件

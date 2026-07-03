@@ -3,6 +3,23 @@
 #include "../Worker/worker.h"
 #include <QDebug>
 #include <QTime>
+#include <QDir>
+
+
+/*
+ * 数据库刷新
+ * 当前刷新依据：行数是否超限
+ */
+void Server::flushDB() {
+    int currentRow = chatTableModel->rowCount();
+    if(currentRow >= N) {
+        chatTableModel->removeRows(0, currentRow - N + 1);
+    }
+    chatTableModel->submitAll();
+    chatTableModel->select();
+}
+
+
 /*
  * 构造函数
  * 各种初始化，完成服务器初始化工作
@@ -39,7 +56,9 @@ Server::Server(QWidget *parent) : QWidget(parent), ui(new Ui::Server) {
     chatTableModel->select();
     // 绑定View
     ui->chatInfo->setModel(chatTableModel);
-
+    // 初始化刷新调试
+    chatTableModel->select();
+    writeLog(QDir::currentPath() + "/chatInfo.db");
 }
 
 Server::~Server() {
@@ -65,6 +84,10 @@ void Server::addChatInfo(QString time, QString sender, QString name, QString msg
 void Server::on_btnDBReset_clicked() {
     int currentRow = chatTableModel->rowCount();
     chatTableModel->removeRows(0, currentRow);
+    // 重置主键
+    QSqlQuery query(chatDB);
+    query.exec("DELETE FROM sqlite_sequence WHERE name='chat_record'");
+
     chatTableModel->submitAll();
     chatTableModel->select();
 }
@@ -211,7 +234,15 @@ void Server::on_btnKick_clicked() {
 /*
     通过输入的n，来设置数据库的最大消息数
 */
-
-void Server::on_btnSerMsgLimit_click() {
-
+void Server::on_btnSerMsgLimit_clicked() {
+    int curN;
+    bool inputCheck;
+    curN = ui->msgNumEdit->text().toInt(&inputCheck);
+    if(inputCheck == false) {
+        ui->msgNumState->setText("状态：错误的输入");
+    } else {
+        N = curN;
+        ui->msgNumState->setText("状态：操作完成");
+    }
+    flushDB();
 }
