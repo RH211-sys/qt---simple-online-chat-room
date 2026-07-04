@@ -25,6 +25,10 @@ Client::Client(QWidget *parent) : QWidget(parent), ui(new Ui::Client) {
     connect(serverTar, &QTcpSocket::readyRead, this, &Client::receiveMsg);
     // 设置过滤器
     ui->sendMsgInfo->installEventFilter(this);
+
+    // 绑定在线用户
+    chaterModel = new QStringListModel(this);
+    ui->onlineChaters->setModel(chaterModel);
 }
 
 Client::~Client() {
@@ -61,6 +65,20 @@ void Client::setDisConnectBtnState() {
     ui->connectCondition->setText("未连接");
     connectState = 0;
     paintStateDot();
+
+
+}
+
+// 当alterMode为1时表示添加，为-1时表示删除
+void Client::updateOnlineUser(QString name, int alterMode) {
+    if(alterMode == 1) {
+        chaterList.append(name);
+        chaterModel->setStringList(chaterList);
+    }
+    else if(alterMode == -1) {
+        chaterList.removeOne(name);
+        chaterModel->setStringList(chaterList);
+    }
 }
 
 void Client::writeLog(QString log) {
@@ -81,8 +99,8 @@ void Client::on_connectBtn_clicked() {
     bool ok;
     int num = name.toInt(&ok);
 
-    if(name.contains('|') || !ok) {
-        ui->msgInfo->addItem("请输入正确的name，名字不能纯数字或包含\"|\"字符");
+    if(ok || name.contains('.') || name.contains('|') || name.contains('/') || name.contains("+")) {
+        ui->msgInfo->addItem("请输入正确的name，名字不能纯数字或包含\"|\",\".\",\"/\",\"+\"等特殊字符");
         return;
     }
     if(name.isEmpty()) name = "Unknown";
@@ -98,7 +116,10 @@ void Client::on_connectBtn_clicked() {
 void Client::on_disConnectBtn_clicked() {
     serverTar->disconnectFromHost();
     heartTime->stop();
+    // ui状态清理
     setDisConnectBtnState();
+    chaterList.clear();
+    chaterModel->setStringList(chaterList);
     writeLog("连接已尝试断开");
 }
 
@@ -136,24 +157,36 @@ void Client::sendHeartPing() {
 
 void Client::receiveMsg() {
     msg = QString::fromUtf8(serverTar->readAll());
-    QString flag = msg[0];
-
+    // 分割信息
+    QStringList msgs = msg.split('|');
+    QString flag;
     // 判断消息类型
-    if(flag == SERVER_CLOSE || flag == SERVER_KICK) {   // 服务器关闭或者被踢出
-        ui->msgInfo->addItem(msg.mid(1));
-        on_disConnectBtn_clicked();     // 断开连接
-    } else if(flag == CHAT_INFO) {
-        ui->msgInfo->addItem(msg.mid(1));
-    } else if(flag == SEARCH_SUCCESS) {
-        ui->msgInfo->addItem(msg.mid(1));
-        writeLog("私信已发送");
-    } else if(flag == SEARCH_FAILED) {
-        writeLog("私信发送失败，用户名填写错误");
-    } else if(flag == PRIVATE_MSG) {
-        ui->msgInfo->addItem(msg.mid(1));
-        writeLog("已接受私信");
+    for(auto& line: msgs) {
+        if (line.isEmpty()) continue;
+        flag = line[0];
+        if (flag == SERVER_CLOSE || flag == SERVER_KICK) {   // 服务器关闭或者被踢出
+            ui->msgInfo->addItem(line.mid(1));
+            on_disConnectBtn_clicked();     // 断开连接
+        } else if (flag == CHAT_INFO || flag == HISTORY_RECORD) {
+            ui->msgInfo->addItem(line.mid(1));
+        } else if (flag == USER_UPDATE) {
+            updateOnlineUser(line.mid(1), 1);
+            ui->msgInfo->addItem(line.mid(1) + " 加入了聊天室");
+        } else if (flag == USER_INIT) {
+            updateOnlineUser(line.mid(1), 1);
+        } else if (flag == SEARCH_SUCCESS) {
+            ui->msgInfo->addItem(line.mid(1));
+            writeLog("私信已发送");
+        } else if (flag == SEARCH_FAILED) {
+            writeLog("私信发送失败，用户名填写错误");
+        } else if (flag == PRIVATE_MSG) {
+            ui->msgInfo->addItem(line.mid(1));
+            writeLog("已接受私信");
+        } else if(flag == USER_UPDATE_OFF) {
+            updateOnlineUser(line.mid(1), -1);
+            ui->msgInfo->addItem(line.mid(1) + "已下线");
+        }
     }
-
 }
 
 /* ==========================  绘图函数模块 ========================== */

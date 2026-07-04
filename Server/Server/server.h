@@ -30,6 +30,9 @@
 #define SEARCH_FAILED "7"
 #define INTERUPT "|"
 #define PRIVATE_MSG "8"
+#define USER_UPDATE "9"
+#define USER_INIT "."
+#define USER_UPDATE_OFF "/"
 
 
 QT_BEGIN_NAMESPACE
@@ -97,6 +100,7 @@ private:
 private:
     void addChatInfo(QString time, QString sender, QString name, QString msg);
     void writeLog(QString text);
+    void cleanCli(QTcpSocket* cli);
 };
 
 

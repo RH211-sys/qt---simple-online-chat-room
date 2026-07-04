@@ -15,7 +15,7 @@
   </property>
   <layout class="QHBoxLayout" name="horizontalLayout_8" stretch="1,2">
    <item>
-    <layout class="QVBoxLayout" name="verticalLayout_4" stretch="0,0,0,0">
+    <layout class="QVBoxLayout" name="verticalLayout_4" stretch="0,0,0,0,0,0">
      <item>
       <layout class="QVBoxLayout" name="verticalLayout_3">
        <item>
@@ -93,6 +93,16 @@
         <string>未连接</string>
        </property>
       </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_7">
+       <property name="text">
+        <string>在线用户列表</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QListView" name="onlineChaters"/>
      </item>
      <item>
       <widget class="QLabel" name="label_4">

@@ -15,6 +15,7 @@
 #include <QPainter>
 #include <QPixmap>
 #include <QKeyEvent>
+#include <QStringListModel>
 /*  第一位是标识符，和服务器的通信协议
  * 1表示为聊天消息
  * 2表示心跳包
@@ -34,6 +35,9 @@
 #define SEARCH_FAILED "7"
 #define INTERUPT "|"
 #define PRIVATE_MSG "8"
+#define USER_UPDATE "9"
+#define USER_INIT "."
+#define USER_UPDATE_OFF "/"
 
 
 
@@ -94,6 +98,10 @@ private:
     int connectState;   // 连接状态,0表示未连接，1表示已连接，2表示正在连接
     QRect stateElli;
 
+    // 当前在线用户
+    QStringListModel *chaterModel;
+    QStringList chaterList;
+
 
 private:
     void setConnectBtnState();     // 设置连接后的按钮状态
@@ -101,6 +109,7 @@ private:
     void setHavingConnectBtnState();    // 设置已连接状态
     void writeLog(QString log);        // 写下程序执行日志
     void paintStateDot();
+    void updateOnlineUser(QString name, int alterMode);     // 客户端在线人数实时显示
 
 };
 

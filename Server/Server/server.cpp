@@ -96,6 +96,22 @@ void Server::addChatInfo(QString time, QString sender, QString name, QString msg
     chatTableModel->select();
 }
 
+// 回收离开聊天室的客户端的资源
+void Server::cleanCli(QTcpSocket* cli) {
+    // 清理线程
+    client_group[cli]->quit();
+    client_group[cli]->wait();
+
+    //清理红黑树
+    auto its = client_group.find(cli);
+    auto itIP = client_name.find(cli);
+    auto reflect = name_to_ip.find(client_name[cli]);
+
+    if(its != client_group.end()) client_group.erase(its);
+    if(itIP != client_name.end()) client_name.erase(itIP);
+    if(reflect != name_to_ip.end()) name_to_ip.erase(reflect);
+}
+
 // 清空数据库按钮
 void Server::on_btnDBReset_clicked() {
     int currentRow = chatTableModel->rowCount();
@@ -117,12 +133,8 @@ void Server::on_btnSerClose_clicked() {
 
     for(auto& x:client_group.keys())
     {
-        // 清理线程
-        client_group[x]->quit();
-        client_group[x]->wait();
-        // 清理红黑树
-        client_group.erase(client_group.find(x));
-        client_name.erase((client_name.find(x)));
+        // 清理客户端
+        cleanCli(x);
         delete x;
     }
     // 暂时不搞循环开关，直接退出进程
@@ -136,15 +148,24 @@ void Server::handleConnect() {
 
     // 从数据库获取前N条数据，发送给用户
     int n = chatTableModel->rowCount();
-    QString msg;    // 缓冲
     for(int i = 0; i < n; ++i) {
+        QString msg;    // 缓冲
         for(int j = 1; j < 4; ++j) {
             msg.push_back(chatTableModel->data(chatTableModel->index(i, j)).toString() + "  ");
         }
-        msg.push_back(chatTableModel->data(chatTableModel->index(i, 4)).toString() + '\n');
+        msg.push_back(chatTableModel->data(chatTableModel->index(i, 4)).toString());
+        cli->write((HISTORY_RECORD + msg + INTERUPT).toUtf8());
     }
-    cli->write((HISTORY_RECORD + msg).toUtf8());
     writeLog("已发送历史记录给该用户");
+
+    // 发送当前存在的用户名
+    for(auto& name: name_to_ip.keys()) {
+        QString msg;
+        msg.push_back(USER_INIT + name + INTERUPT);
+        cli->write(msg.toUtf8());
+    }
+    writeLog("已发送目前在线客户端给该用户");
+
 
     // 将用户放入用户组，并给他一个线程
     QThread* cli_thread = new QThread();
@@ -188,7 +209,7 @@ void Server::receiveCliMsg(QByteArray content, QTcpSocket* cli) {
         chaterModel->setStringList(chaterList);
         // 写入日志并广播
         writeLog(QString (client_name[cli] + '[' + cli->peerAddress().toString() + "] 加入了聊天室"));
-        broadCast(QString(CHAT_INFO + client_name[cli] + " 加入了聊天室"));
+        broadCast(QString(USER_UPDATE + client_name[cli]));     // 客户端那边自己更新
         return;
     }
     // 判断消息类型
@@ -224,7 +245,7 @@ void Server::writeLog(QString text) {
 
 // 服务器向指定客户端发送数据
 void Server::tellPointedUser(QString content, QTcpSocket *cli, QString state) {
-    QByteArray msg = (state + content).toUtf8();
+    QByteArray msg = (state + content + INTERUPT).toUtf8();
     cli->write(msg);
 }
 
@@ -232,7 +253,7 @@ void Server::tellPointedUser(QString content, QTcpSocket *cli, QString state) {
 void Server::broadCast(QByteArray content, QTcpSocket* cli) {
     QByteArray msg = (CHAT_INFO + client_name[cli] + ": ").toUtf8() + content;
     for(auto& cli_temp: client_group.keys()) {
-        cli_temp->write(msg);
+        cli_temp->write(msg + INTERUPT);
     }
     writeLog("已完成广播");
 }
@@ -241,7 +262,7 @@ void Server::broadCast(QByteArray content, QTcpSocket* cli) {
 void Server::broadCast(QString content, QTcpSocket* cli) {
     QByteArray msg = (CHAT_INFO + client_name[cli] + ": " + content).toUtf8();
     for(auto& cli: client_group.keys()) {
-        cli->write(msg);
+        cli->write(msg + INTERUPT);
     }
     writeLog("已完成广播");
 }
@@ -250,7 +271,7 @@ void Server::broadCast(QString content, QTcpSocket* cli) {
 void Server::broadCast(QString content) {
     QByteArray msg = content.toUtf8();
     for(auto& cli: client_group.keys()) {
-        cli->write(msg);
+        cli->write(msg + INTERUPT);
         cli->flush();
     }
     writeLog("已完成广播");
@@ -260,16 +281,12 @@ void Server::handleDisConnect(QTcpSocket *cli) {
 
     // 获取用户名
     QString user = client_name[cli];
-    // 广播用户的下线消息
 
-    QString content = user + " 已下线";
-    broadCast(CHAT_INFO + content);
+    // 广播用户的下线消息
+    broadCast(USER_UPDATE_OFF + user);
 
     // 删除在用户组的该用户的相关数据缓存
-    auto it = client_group.find(cli);
-    auto itIP = client_name.find(cli);
-    if(it != client_group.end()) client_group.erase(it);
-    if(itIP != client_name.end()) client_name.erase(itIP);
+    cleanCli(cli);
 
     writeLog("已完成用户下线处理");
 
@@ -297,21 +314,17 @@ void Server::on_btnKick_clicked() {
     // 获取这个用户的ip,然后告诉他他被踢了
     QTcpSocket* it = name_to_ip[name];
     tellPointedUser("服务器通知：你已被服务端踢出聊天室", it, SERVER_KICK);
+    // 清理it
+    cleanCli(it);
 
-    // 结束这个客户端的线程和worker
-    client_group[it]->quit();
-    client_group[it]->wait();
 
-    // 清理红黑树上的it
-    client_group.erase(client_group.find(it));
-    client_name.erase((client_name.find(it)));
     ui->kickState->setText("状态：已踢出");
-
     chaterList.removeOne(name);
     chaterModel->setStringList(chaterList);
 
     // 广播所有人
-    QString content = name + "已被踢出了聊天室！！！";
+    QString content = CHAT_INFO + name + "已被踢出了聊天室！！！";
+    broadCast(USER_UPDATE_OFF + name);
     broadCast(content);
     cli_cnt_change(-1);
 }
