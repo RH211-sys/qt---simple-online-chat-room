@@ -6,14 +6,14 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>679</width>
-    <height>470</height>
+    <width>745</width>
+    <height>456</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Client</string>
   </property>
-  <layout class="QHBoxLayout" name="horizontalLayout_4" stretch="1,3">
+  <layout class="QHBoxLayout" name="horizontalLayout_8" stretch="1,2">
    <item>
     <layout class="QVBoxLayout" name="verticalLayout_4" stretch="0,0,0,0">
      <item>
@@ -107,30 +107,113 @@
     </layout>
    </item>
    <item>
-    <layout class="QVBoxLayout" name="verticalLayout_6" stretch="7,2">
+    <layout class="QVBoxLayout" name="verticalLayout_8" stretch="2,1">
      <item>
       <widget class="QListWidget" name="msgInfo"/>
      </item>
      <item>
-      <layout class="QHBoxLayout" name="horizontalLayout_2">
+      <layout class="QVBoxLayout" name="verticalLayout_7">
        <item>
-        <widget class="QTextEdit" name="sendMsgInfo"/>
-       </item>
-       <item>
-        <layout class="QVBoxLayout" name="verticalLayout_5">
+        <layout class="QHBoxLayout" name="horizontalLayout_6">
          <item>
-          <widget class="QPushButton" name="sendBtn">
-           <property name="text">
-            <string>发送</string>
-           </property>
-          </widget>
+          <widget class="QTextEdit" name="sendMsgInfo"/>
          </item>
          <item>
-          <widget class="QPushButton" name="clearChatLog">
-           <property name="text">
-            <string>清空聊天消息</string>
-           </property>
-          </widget>
+          <layout class="QVBoxLayout" name="verticalLayout_5">
+           <item>
+            <widget class="QPushButton" name="sendBtn">
+             <property name="text">
+              <string>发送(快捷键：回车)</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="clearChatLog">
+             <property name="text">
+              <string>清空聊天消息</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="btnMsgPrivate">
+             <property name="text">
+              <string>私信</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QVBoxLayout" name="verticalLayout_6">
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_2">
+           <item>
+            <widget class="QLabel" name="label_5">
+             <property name="text">
+              <string>指定用户名/IP：</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLineEdit" name="privateUserEdit"/>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_4">
+           <item>
+            <widget class="QLabel" name="label_6">
+             <property name="text">
+              <string>文件绝对路径：</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLineEdit" name="fileDirEdit"/>
+           </item>
+           <item>
+            <widget class="QPushButton" name="btnFileDirSearch">
+             <property name="text">
+              <string>浏览</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_5">
+           <item>
+            <widget class="QPushButton" name="btnFileShared">
+             <property name="text">
+              <string>文件共享</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="btnFilePrivate">
+             <property name="text">
+              <string>文件私发</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QVBoxLayout" name="verticalLayout_9">
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_9">
+             <item>
+              <widget class="QPushButton" name="btnFilePrivate_2">
+               <property name="text">
+                <string>文件收取(无可收取文件)</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
          </item>
         </layout>
        </item>
