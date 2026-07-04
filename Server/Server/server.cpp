@@ -191,12 +191,31 @@ void Server::receiveCliMsg(QByteArray content, QTcpSocket* cli) {
         broadCast(QString(CHAT_INFO + client_name[cli] + " 加入了聊天室"));
         return;
     }
-    // 为正常的聊天消息,构建该消息的结构，传到数据库
-    QString time = QTime::currentTime().toString();
-    QString name = client_name[cli];
-    QString sender = cli->peerAddress().toString();
-    addChatInfo(time, sender, name, content.mid(1));
-    broadCast(content.mid(1), cli);
+    // 判断消息类型
+    QString flag = msg[0];
+
+    if(flag == CHAT_INFO) {
+        // 为正常的聊天广播消息,构建该消息的结构，传到数据库
+        QString time = QTime::currentTime().toString();
+        QString name = client_name[cli];
+        QString sender = cli->peerAddress().toString();
+        addChatInfo(time, sender, name, content.mid(1));
+        broadCast(content.mid(1), cli);
+    } else if(flag == PRIVATE_SEND_REQUEST) {
+        // 为私发消息
+        QString text = msg.mid(1);          // 去掉协议号
+        int pos = text.indexOf(INTERUPT);
+        QString name = text.left(pos);      // INTERUPT 前面的用户名或IP
+        QString content = text.mid(pos + 1); // INTERUPT 后面的消息内容
+
+        // 查看是否存在该用户，若存在则转发，否则返回错误码
+        if(name_to_ip.find(name) != name_to_ip.end()) {
+            tellPointedUser(name + " 悄悄的告诉你: " + content, name_to_ip[name], PRIVATE_MSG);
+            tellPointedUser("", cli, SEARCH_SUCCESS);
+        } else {
+            tellPointedUser("", cli, SEARCH_FAILED);
+        }
+    }
 }
 
 void Server::writeLog(QString text) {
@@ -205,7 +224,7 @@ void Server::writeLog(QString text) {
 
 // 服务器向指定客户端发送数据
 void Server::tellPointedUser(QString content, QTcpSocket *cli, QString state) {
-    QByteArray msg = (state + "服务器通知: " + content).toUtf8();
+    QByteArray msg = (state + content).toUtf8();
     cli->write(msg);
 }
 
@@ -277,7 +296,7 @@ void Server::on_btnKick_clicked() {
     }
     // 获取这个用户的ip,然后告诉他他被踢了
     QTcpSocket* it = name_to_ip[name];
-    tellPointedUser("你已被服务端踢出聊天室", it, SERVER_KICK);
+    tellPointedUser("服务器通知：你已被服务端踢出聊天室", it, SERVER_KICK);
 
     // 结束这个客户端的线程和worker
     client_group[it]->quit();

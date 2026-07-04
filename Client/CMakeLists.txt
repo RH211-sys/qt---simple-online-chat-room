@@ -21,7 +21,6 @@ add_executable(project_client main.cpp
         Client/client.ui
         serverSocket/serverSocket.cpp
         serverSocket/serverSocket.h
-        Client/common_module/p2pRelate_module.cpp
 )
 target_link_libraries(project_client
         Qt::Core

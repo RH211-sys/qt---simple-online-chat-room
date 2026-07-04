@@ -25,6 +25,11 @@
 #define PUNPING_INFO "2"
 #define SERVER_CLOSE "3"
 #define SERVER_KICK "4"
+#define PRIVATE_SEND_REQUEST "5"
+#define SEARCH_SUCCESS "6"
+#define SEARCH_FAILED "7"
+#define INTERUPT "|"
+#define PRIVATE_MSG "8"
 
 
 QT_BEGIN_NAMESPACE

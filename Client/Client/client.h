@@ -20,8 +20,8 @@
  * 2表示心跳包
  * 3表示服务器关闭
  * 4表示服务器踢出
- * 5表示向服务器请求查找用户
- * 6表示服务器找到用户IP
+ * 5表示向服务器请求查找用户并转发消息
+ * 6表示服务器成功转发
  * 7表示服务器没有找到该用户
  */
 #define HISTORY_RECORD "0"
@@ -29,9 +29,12 @@
 #define PUNPING_INFO "2"
 #define SERVER_CLOSE "3"
 #define SERVER_KICK "4"
-#define SEARCH_REQUEST "5"
+#define PRIVATE_SEND_REQUEST "5"
 #define SEARCH_SUCCESS "6"
 #define SEARCH_FAILED "7"
+#define INTERUPT "|"
+#define PRIVATE_MSG "8"
+
 
 
 /*
@@ -90,10 +93,7 @@ private:
 
     int connectState;   // 连接状态,0表示未连接，1表示已连接，2表示正在连接
     QRect stateElli;
-    struct {
-        QHostAddress p2p_oppose;
-        bool isAvaliable;
-    } privateOppose;    // 表示在p2p模式下的对方主机地址，这个结构体主要用来处理私发模块中的判断用户输入
+
 
 private:
     void setConnectBtnState();     // 设置连接后的按钮状态
@@ -101,7 +101,6 @@ private:
     void setHavingConnectBtnState();    // 设置已连接状态
     void writeLog(QString log);        // 写下程序执行日志
     void paintStateDot();
-    int checkUserEdit(QHostAddress& oppose);        // 关于私发模块中的ip/用户名的正确性检查
 
 };
 

@@ -11,6 +11,7 @@
 
 
 
+
 Client::Client(QWidget *parent) : QWidget(parent), ui(new Ui::Client) {
     ui->setupUi(this);
     serverTar = new serverSocket(this);
@@ -24,8 +25,6 @@ Client::Client(QWidget *parent) : QWidget(parent), ui(new Ui::Client) {
     connect(serverTar, &QTcpSocket::readyRead, this, &Client::receiveMsg);
     // 设置过滤器
     ui->sendMsgInfo->installEventFilter(this);
-    // 初始化结构体
-    privateOppose.isAvaliable = false;
 }
 
 Client::~Client() {
@@ -68,33 +67,6 @@ void Client::writeLog(QString log) {
     ui->logInfo->addItem(log);
 }
 
-/* 检测用户在p2p通信对方信息的正确性
- * 判断用户输入的协议(在输入指定用户名/IP那一栏)
- * 当输入错误，返回ERROR_EDIT_INFO
- * 输入IP时，返回IP_EDIT_INFO
- * 输入用户名时，返回NAME_EDIT_INFO
- * 输入IP但是没有连接服务器，返回WITHOUT_CONNECTION
- * 这里这样封装的原因是优化oppose,以防每次都要复制并检验
- * 这里成功能返回正确并拷贝，否则不拷贝且返回错误，最后还是要转为IP
- */
-int Client::checkUserEdit(QHostAddress& oppose) {
-    QString text = ui->privateUserEdit->text();
-    if(oppose.setAddress(text)) {   // 是否为IP地址，如果是则返回
-        return IP_EDIT_INFO;
-    } else if(serverTar->state() != QAbstractSocket::ConnectedState) {  //是否连接了服务器，若不是则返回
-        // 未连接
-        return WITHOUT_CONNECTION;
-    } else {
-        // 连接了服务器，需要查找用户名对应的IP地址
-        QByteArray bytes(SEARCH_REQUEST + text.toUtf8());
-        serverTar->write(bytes);
-        /*
-         * 为方便开发，这里不进行解耦，返回值由receiveMsg里面设置
-         * */
-    }
-    return UNKNOWN;
-}
-
 /* ========================== 槽函数/基本模块 ========================== */
 
 /*
@@ -105,6 +77,14 @@ int Client::checkUserEdit(QHostAddress& oppose) {
 void Client::on_connectBtn_clicked() {
     // 获取用户键入的信息
     name = ui->nameEdit->text();
+    // 数字检测
+    bool ok;
+    int num = name.toInt(&ok);
+
+    if(name.contains('|') || !ok) {
+        ui->msgInfo->addItem("请输入正确的name，名字不能纯数字或包含\"|\"字符");
+        return;
+    }
     if(name.isEmpty()) name = "Unknown";
     serIP = ui->IPEdit->text();
     serPort = ui->portEdit->text().toUInt();
@@ -165,12 +145,13 @@ void Client::receiveMsg() {
     } else if(flag == CHAT_INFO) {
         ui->msgInfo->addItem(msg.mid(1));
     } else if(flag == SEARCH_SUCCESS) {
-        // 服务器查找到用户，返回
-        QString text = msg.mid(1);
-        privateOppose.isAvaliable = true;
-        privateOppose.p2p_oppose.setAddress(text);
+        ui->msgInfo->addItem(msg.mid(1));
+        writeLog("私信已发送");
     } else if(flag == SEARCH_FAILED) {
-        privateOppose.isAvaliable = false;
+        writeLog("私信发送失败，用户名填写错误");
+    } else if(flag == PRIVATE_MSG) {
+        ui->msgInfo->addItem(msg.mid(1));
+        writeLog("已接受私信");
     }
 
 }
@@ -219,24 +200,15 @@ bool Client::eventFilter(QObject *obj, QEvent *event) {
 
 // 私信
 void Client::on_btnMsgPrivate_clicked() {
-    QHostAddress oppose;
-    int check = checkUserEdit(oppose);
-    if(check == WITHOUT_CONNECTION) {
-        writeLog("没有连接服务器，无法查找");
-    } else if(check == IP_EDIT_INFO) {
-
-    } else if(check == UNKNOWN) {
-        // 需要获取服务器查找的结果
-        if(privateOppose.isAvaliable) {
-            // 找到了
-            oppose = privateOppose.p2p_oppose;
-            // 处理相关发送
-        } else {
-            // 没有找到
-            writeLog("该用户不在线，或者是随机值没输入");
-        }
-
+    QString text = ui->privateUserEdit->text();
+    if(serverTar->state() != QAbstractSocket::ConnectedState) {
+        // 未连接服务器
+        writeLog("未连接服务器");
+        return;
     }
+    serverTar->write(QByteArray((PRIVATE_SEND_REQUEST + text +
+                                "|" + ui->sendMsgInfo->toPlainText())
+                                .toUtf8()));
 }
 
 // 文件浏览
