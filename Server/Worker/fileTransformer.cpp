@@ -18,7 +18,6 @@ static QByteArray readUntil(QTcpSocket* cli, QString _flag) {
 FileTransformer::FileTransformer(QObject *parent, Server *ser, QTcpSocket *cli) {
     server = ser;
     client = cli;
-    name = cli->peerName();
     downloadFileDepot = QDir(downloadFilePath);
 }
 
@@ -30,9 +29,10 @@ void FileTransformer::doReceiveFile(QTcpSocket* cli) {
     if(cli != client) return;
     // 获取传送方式(shared还是private)[阅读3位：保留拓展性]
     QString transferWay = QString::fromUtf8(client->read(3));
+    QString name;   // 这是私发文件模块中的目标客户端用户名的变量
     if(transferWay == "001") {
         // 需要获取私发的用户名
-        QString name = QString::fromUtf8(readUntil(client, INTERUPT));
+        name = QString::fromUtf8(readUntil(client, INTERUPT));
         auto it = server->name_to_ip.find(name);
         if(it == server->name_to_ip.end()) {
             // 未找到该用户

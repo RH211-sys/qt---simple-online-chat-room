@@ -33,7 +33,6 @@ private:
     Server* server;     // 指向服务端
 
     QTcpSocket* client;     // 指向客户端
-    QString name;           // 客户端名称(还未写客户端，暂时没有途径获取测试数据)
     const QString downloadFilePath = "../fileDepot/";   // 文件接收仓库地址名
     QDir downloadFileDepot;
 };
