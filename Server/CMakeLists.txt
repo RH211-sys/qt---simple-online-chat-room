@@ -22,6 +22,8 @@ add_executable(project_server main.cpp
         Server/server.ui
         Worker/worker.cpp
         Worker/worker.h
+        Worker/fileTransformer.cpp
+        Worker/fileTransformer.h
 )
 target_link_libraries(project_server
         Qt::Core

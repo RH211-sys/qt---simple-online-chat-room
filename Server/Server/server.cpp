@@ -1,6 +1,7 @@
 #include "server.h"
 #include "ui_server.h"
 #include "../Worker/worker.h"
+#include "../Worker/fileTransformer.h"
 #include <QDebug>
 #include <QTime>
 #include <QDir>
@@ -170,13 +171,19 @@ void Server::handleConnect() {
     // 将用户放入用户组，并给他一个线程
     QThread* cli_thread = new QThread();
     Worker* worker_cli = new Worker(nullptr, server, cli);
+    FileTransformer* fileTrans_cli = new FileTransformer(nullptr, server, cli);     // 文件传输模块的Worker
 
+
+    // 移到线程上
     worker_cli->moveToThread(cli_thread);
+    fileTrans_cli->moveToThread(cli_thread);
+
     // 处理信号和槽
     connect(worker_cli, &Worker::send_server, this, &Server::receiveCliMsg);
     connect(worker_cli, &Worker::cli_exit, this, &Server::handleDisConnect);
     connect(cli_thread, &QThread::finished, worker_cli, &Worker::deleteLater);      // 资源回收预连接
     connect(cli_thread, &QThread::finished, cli_thread, &QThread::deleteLater);     // 资源回收预连接
+    connect(cli_thread, &QThread::finished, fileTrans_cli, &FileTransformer::deleteLater);  // 资源回收预连接
     connect(cli_thread, &QThread::started, worker_cli, &Worker::doWork);        // 线程启动后开始检测心跳
 
     // 放入红黑树并启动线程
@@ -236,6 +243,20 @@ void Server::receiveCliMsg(QByteArray content, QTcpSocket* cli) {
         } else {
             tellPointedUser("", cli, SEARCH_FAILED);
         }
+    } else if (flag == FILE_TRANSFER_REQUEST) {
+        // 如果是文件传输协议，则先接受文件
+
+
+
+        // 获取传送方式(shared还是private)
+        QString text = msg.mid(1);
+        if(text == "Private Transfer") {
+            // 文件私发，需要设置权限
+        }
+        else if(text == "File Shared") {
+            // 文件共享
+        }
+
     }
 }
 

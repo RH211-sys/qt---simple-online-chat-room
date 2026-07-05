@@ -39,6 +39,8 @@
 #define USER_INIT '\b'
 #define USER_UPDATE_OFF '\r'
 
+#define FILE_TRANSFER_REQUEST "A"
+#define FILE_TRANSFER_RESULT "B"
 
 
 /*
