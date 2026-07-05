@@ -33,11 +33,11 @@
 #define PRIVATE_SEND_REQUEST "5"
 #define SEARCH_SUCCESS "6"
 #define SEARCH_FAILED "7"
-#define INTERUPT "|"
+#define INTERUPT '\n'
 #define PRIVATE_MSG "8"
 #define USER_UPDATE "9"
-#define USER_INIT "."
-#define USER_UPDATE_OFF "/"
+#define USER_INIT '\b'
+#define USER_UPDATE_OFF '\r'
 
 
 
