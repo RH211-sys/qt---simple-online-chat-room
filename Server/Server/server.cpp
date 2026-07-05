@@ -171,7 +171,7 @@ void Server::handleConnect() {
     // 将用户放入用户组，并给他一个线程
     QThread* cli_thread = new QThread();
     Worker* worker_cli = new Worker(nullptr, server, cli);
-    FileTransformer* fileTrans_cli = new FileTransformer(nullptr, server, cli);     // 文件传输模块的Worker
+    FileTransformer* fileTrans_cli = new FileTransformer(nullptr, this, cli);     // 文件传输模块的Worker
 
 
     // 移到线程上
@@ -185,6 +185,12 @@ void Server::handleConnect() {
     connect(cli_thread, &QThread::finished, cli_thread, &QThread::deleteLater);     // 资源回收预连接
     connect(cli_thread, &QThread::finished, fileTrans_cli, &FileTransformer::deleteLater);  // 资源回收预连接
     connect(cli_thread, &QThread::started, worker_cli, &Worker::doWork);        // 线程启动后开始检测心跳
+    // 文件模块连接
+    connect(fileTrans_cli, &FileTransformer::addNewPrivateFile, this, &Server::addNewPrivateFile);
+    connect(fileTrans_cli, &FileTransformer::addNewSharedFile, this, &Server::addNewSharedFile);
+
+    // 连接文件传输的信号和槽
+    connect(this, &Server::receiveFile, fileTrans_cli, &FileTransformer::doReceiveFile);
 
     // 放入红黑树并启动线程
     this->client_group.insert(cli, cli_thread);
@@ -196,17 +202,18 @@ void Server::handleConnect() {
 }
 
 // 处理接收到的用户的数据，需要放到数据库并广播
-// 需要注意第一位是标识符
-void Server::receiveCliMsg(QByteArray content, QTcpSocket* cli) {
-    QString msg = QString::fromUtf8(content);
+// 需要注意第一位是标识符(flag)
+void Server::receiveCliMsg(QByteArray _flag, QTcpSocket* cli) {
+    QString flag = QString::fromUtf8(_flag);
     // 检查接收数据的类型,如果是心跳包，则直接略过，否则视为聊天消息进行处理
-    if(msg == PUNPING_INFO) return;
+    if(flag == PUNPING_INFO) return;
     // 如果是第一个数据包，那么这个数据包是用户的name，需要存起来
     auto it = client_firstBag_set.find(cli);
     if(it != client_firstBag_set.end()) {
         // 注册用户名+随机值
+        QString name = cli->readAll();
         int id = QRandomGenerator::global()->bounded(1000, 10000);
-        QString cli_name = msg + '#' + QString::number(id);
+        QString cli_name = name + '#' + QString::number(id);
         // 插入到红黑树和缓存
         this->client_name.insert(cli, cli_name);
         client_firstBag_set.erase(it);
@@ -219,18 +226,17 @@ void Server::receiveCliMsg(QByteArray content, QTcpSocket* cli) {
         broadCast(QString(USER_UPDATE + client_name[cli]));     // 客户端那边自己更新
         return;
     }
-    // 判断消息类型
-    QString flag = msg[0];
-
     if(flag == CHAT_INFO) {
         // 为正常的聊天广播消息,构建该消息的结构，传到数据库
+        QString msg = cli->readAll();
         QString time = QTime::currentTime().toString();
         QString name = client_name[cli];
         QString sender = cli->peerAddress().toString();
-        addChatInfo(time, sender, name, content.mid(1));
-        broadCast(content.mid(1), cli);
+        addChatInfo(time, sender, name, msg.mid(1));
+        broadCast(msg.mid(1), cli);
     } else if(flag == PRIVATE_SEND_REQUEST) {
         // 为私发消息
+        QString msg = cli->readAll();
         QString text = msg.mid(1);          // 去掉协议号
         int pos = text.indexOf(INTERUPT);
         QString name = text.left(pos);      // INTERUPT 前面的用户名或IP
@@ -244,18 +250,10 @@ void Server::receiveCliMsg(QByteArray content, QTcpSocket* cli) {
             tellPointedUser("", cli, SEARCH_FAILED);
         }
     } else if (flag == FILE_TRANSFER_REQUEST) {
-        // 如果是文件传输协议，则先接受文件
+        // 如果是文件传输协议，则交给子线程处理
+        cli->read(1);    // 消费掉这个表示符，因为之前获取的标识符是读方式
+        emit receiveFile(cli);
 
-
-
-        // 获取传送方式(shared还是private)
-        QString text = msg.mid(1);
-        if(text == "Private Transfer") {
-            // 文件私发，需要设置权限
-        }
-        else if(text == "File Shared") {
-            // 文件共享
-        }
 
     }
 }
@@ -364,6 +362,23 @@ void Server::on_btnSerMsgLimit_clicked() {
         ui->msgNumState->setText("状态：操作完成");
     }
     flushDB();
+}
+
+/* ========================= 文件传输模块(服务器) ======================== */
+
+void Server::addNewSharedFile(QTcpSocket *cli_source, QString fileName) {
+    sharedFiles.insert(fileName);
+    tellPointedUser("文件已发送至服务器", cli_source, CHAT_INFO);
+    QString msg = "ok";
+    broadCast(FILE_TRANSFER_RESULT + msg);
+}
+
+void Server::addNewPrivateFile(QTcpSocket *cli_source, QString cliTargetName, QString fileName) {
+    QTcpSocket* cli_target = name_to_ip[cliTargetName];
+    privateFiles[cli_target].insert(fileName);
+    tellPointedUser("文件已发送至服务器", cli_source, CHAT_INFO);
+    QString msg = "ok";
+    tellPointedUser("ok", cli_source, FILE_TRANSFER_RESULT);
 }
 
 

@@ -33,8 +33,8 @@ void Worker::doExit() {
 
 void Worker::read_msg_cli() {
     checkTime->start(punpingTime);
-    QByteArray content = client->readAll();
-    emit send_server(content, client);
+    QByteArray firstByte = client->peek(1);
+    emit send_server(firstByte, client);
 }
 
 void Worker::timeoutHandle() {

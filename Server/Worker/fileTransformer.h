@@ -8,23 +8,34 @@
 #include <QObject>
 #include <QTcpSocket>
 #include <QTcpServer>
+#include <QFile>
+#include <QDir>
 #include "../Server/server.h"
 
 class FileTransformer : public QObject {
     Q_OBJECT
 public:
-    FileTransformer(QObject *parent = nullptr, QTcpServer *ser = nullptr, QTcpSocket *cli = nullptr);
+    FileTransformer(QObject *parent = nullptr, Server *ser = nullptr, QTcpSocket *cli = nullptr);
     ~FileTransformer() override;
+
+    // 和服务器连通的信号
+    signals:
+    void addNewSharedFile(QTcpSocket* cli_source, QString fileName);     // 添加新共享文件
+    void addNewPrivateFile(QTcpSocket* cli_source, QString cli_target, QString fileName);   // 添加私发文件
+
+
 public slots:
     // 槽函数
-    void doReceiveFile(const char* dir);   // 接收来自客户端的文件
+    void doReceiveFile(QTcpSocket* cli);   // 接收来自客户端的文件
     void doTransfer(const char* dir, QTcpSocket* cli);       // 将文件传送到指定客户端
 
 private:
-    QTcpServer* server;     // 指向服务端
+    Server* server;     // 指向服务端
+
     QTcpSocket* client;     // 指向客户端
     QString name;           // 客户端名称(还未写客户端，暂时没有途径获取测试数据)
-    const char* downloadFileDir = "../fileDepot/";   // 文件接收仓库
+    const QString downloadFilePath = "../fileDepot/";   // 文件接收仓库地址名
+    QDir downloadFileDepot;
 };
 
 
