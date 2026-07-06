@@ -30,6 +30,8 @@ public slots:
     void doTransfer(QString filename);       // 将文件传送到指定客户端
 
 private:
+    QString saveFile(QTcpSocket* cli, const QString& originalName, qint64 fileSize);
+
     Server* server;     // 指向服务端
 
     QTcpSocket* client;     // 指向客户端

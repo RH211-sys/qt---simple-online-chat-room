@@ -23,6 +23,9 @@ add_executable(project_client main.cpp
         serverSocket/serverSocket.h
         worker/FilesTransFerer.cpp
         worker/FilesTransFerer.h
+        worker/files_receive_module/filesreceiver.cpp
+        worker/files_receive_module/filesreceiver.h
+        worker/files_receive_module/filesreceiver.ui
 )
 target_link_libraries(project_client
         Qt::Core

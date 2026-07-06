@@ -4,6 +4,7 @@
 
 #include "fileTransformer.h"
 
+// 读取直到遇到分隔符的第一个字节（消费该分隔符）
 static QByteArray readUntil(QTcpSocket* cli, QString _flag) {
     QByteArray flag = _flag.toUtf8();
     QByteArray res;
@@ -25,117 +26,131 @@ FileTransformer::~FileTransformer() {
 
 }
 
+// 将接收到的文件数据保存到磁盘，返回服务端存储的文件名
+QString FileTransformer::saveFile(QTcpSocket* cli, const QString& originalName, qint64 fileSize) {
+    // 用客户端名作为前缀，避免重名文件互相覆盖
+    QString savedName = server->client_name[cli] + '(' + originalName + ')';
+    QFile file(downloadFilePath + savedName);
+    file.open(QIODevice::WriteOnly);
+
+    qint64 received = 0;
+    while (received < fileSize) {
+        QByteArray chunk = cli->read(qMin(fileSize - received, 65536LL));       // 64KB读取
+        file.write(chunk);
+        received += chunk.size();
+    }
+    file.close();
+
+    // 消费 FILE_TRANSFER_END
+    cli->read(1);
+
+    return savedName;
+}
+
 void FileTransformer::doReceiveFile(QTcpSocket* cli) {
     if(cli != client) return;
-    // 获取传送方式(shared还是private)[阅读3位：保留拓展性]
-    QString transferWay = QString::fromUtf8(client->read(3));
-    QString name;   // 这是私发文件模块中的目标客户端用户名的变量
-    if(transferWay == "001") {
-        // 需要获取私发的用户名
-        name = QString::fromUtf8(readUntil(client, INTERUPT));
-        // 需要去查找这个用户是否在线(客户端也有判断，不过做双重保险)，正常情况不会进入if分支
-        auto it = server->name_to_ip.find(name);
-        if(it == server->name_to_ip.end()) {
-            // 未找到该用户
-            server->tellPointedUser("errName", cli, FILE_TRANSFER_RESULT);
-            // 获取发来的文件名和文件大小
-            QString filename = QString::fromUtf8(readUntil(client, INTERUPT));
-            long long n = readUntil(client, INTERUPT).toLongLong();
+
+    // 读取子类型（3字节）
+    QString subType = QString::fromUtf8(client->read(3));
+
+    /* ============== 文件上传模块 =============== */
+    if (subType == FT_SHARED_UPLOAD) {
+        // "A" + "000" + fileName + INTERUPT + fileSize + INTERUPT + [file data] + FILE_TRANSFER_END
+        QString fileName = QString::fromUtf8(readUntil(client, INTERUPT));
+        qint64 fileSize = readUntil(client, INTERUPT).toLongLong();
+
+        QString savedName = saveFile(client, fileName, fileSize);
+        emit addNewSharedFile(client, savedName);
+
+    } else if (subType == FT_PRIVATE_UPLOAD) {
+        // "A" + "001" + targetName + INTERUPT + fileName + INTERUPT + fileSize + INTERUPT + [file data] + FILE_TRANSFER_END
+        QString targetName = QString::fromUtf8(readUntil(client, INTERUPT));
+        QString fileName = QString::fromUtf8(readUntil(client, INTERUPT));
+        qint64 fileSize = readUntil(client, INTERUPT).toLongLong();
+
+        // 双重保险：检查目标用户是否在线（客户端已做判断）
+        auto it = server->name_to_ip.find(targetName);
+        if (it == server->name_to_ip.end()) {
+            // 目标不存在，消费掉文件数据然后返回错误
             qint64 received = 0;
-            // 分片读取
-            while (received < n) {
-                QByteArray chunk = client->read(qMin(n - received, 65536LL));  // 每次64KB
+            while (received < fileSize) {
+                QByteArray chunk = cli->read(qMin(fileSize - received, 65536LL));
                 received += chunk.size();
             }
+            cli->read(1);  // FILE_TRANSFER_END
+            // 通知发送者失败
+            QByteArray failAck = QByteArray(FILE_TRANSFER_RESULT) + FT_ACK_SENDER
+                               + "001fail" + INTERUPT;
+            cli->write(failAck);
             return;
         }
-    }
 
-    QString filename;
-    // 如果是发送文件，则先存储到服务器
-    if(transferWay == "000" || transferWay == "001") {
-        // 获取发来的文件名和文件大小
-        filename = QString::fromUtf8(readUntil(client, INTERUPT));
-        int name_size = filename.size();
-        long long n = readUntil(client, INTERUPT).toLongLong();
-        // 创建下载文件的文件名(用用户名的方式创建可以确保重写覆盖，节约空间)
-        filename += '(' + filename + ')';
-        // 创建文件，然后开始下载
-        QFile file(downloadFilePath + filename);
-        file.open(QIODevice::WriteOnly);
-        qint64 received = 0;
-        // 分片读取
-        while (received < n) {
-            QByteArray chunk = client->read(qMin(n - received, 65536LL));  // 每次64KB
-            file.write(chunk);
-            received += chunk.size();
-        }
-        // 读完了，关闭
-        file.close();
-    }
+        QString savedName = saveFile(client, fileName, fileSize);
+        emit addNewPrivateFile(client, targetName, savedName);
 
-    /* ============== 发送文件后的处理 =============== */
-    if(transferWay == "000") {
-        // 文件共享通知
-        emit addNewSharedFile(client, filename);
-    } else if(transferWay == "001") {
-        // 文件私发通知
-        emit addNewPrivateFile(client, name, filename);
-    }
-    /* ============== 下面是接收文件模块 =============== */
-    else if(transferWay == "010") {
-        // 查询可接收的文件
-        cli->read(1);   // 消费掉INTERRUPT
-        QString files = FILE_TRANSFER_RESULT;
-        files += "010";
-        for(auto& x : server->sharedFiles) {
-            files += x;
-            files += INTERUPT;
+    /* ============== 文件查询模块 =============== */
+    } else if (subType == FT_QUERY_FILES) {
+        // "A" + "002"  无body，直接返回文件列表
+        QByteArray fileListBody;
+        for (auto& x : server->sharedFiles) {
+            fileListBody += x.toUtf8() + INTERUPT;
         }
-        for(auto& x : server->privateFiles[cli]) {
-            files += x;
-            files += INTERUPT;
+        for (auto& x : server->privateFiles[cli]) {
+            fileListBody += x.toUtf8() + INTERUPT;
         }
-        // 通过服务器函数通知
-        server->tellPointedUser(files, client, FILE_TRANSFER_RESULT);
-    } else if(transferWay == "011") {
-        // 发送文件
-        filename = QString::fromUtf8(readUntil(client, INTERUPT));
-        if(server->sharedFiles.contains(filename) || server->privateFiles[cli].contains(filename)) {
-            doTransfer(filename);
+
+        if (fileListBody.isEmpty()) {
+            // 无可下载文件
+            QByteArray response = QByteArray(FILE_TRANSFER_RESULT) + FT_QUERY_FAIL;
+            client->write(response);
+        } else {
+            // B + "997" + bodySize + INTERUPT + body{fileName + INTERUPT...}
+            QByteArray response = QByteArray(FILE_TRANSFER_RESULT) + FT_QUERY_SUCCESS
+                                + QByteArray::number(fileListBody.size()) + INTERUPT
+                                + fileListBody;
+            client->write(response);
         }
-        // 一般不会进这个分支
-        else {
-            // 该文件不存在
+
+    /* ============== 文件下载模块 =============== */
+    } else if (subType == FT_DOWNLOAD_REQ) {
+        // "A" + "003" + fileName + INTERUPT
+        QString fileName = QString::fromUtf8(readUntil(client, INTERUPT));
+
+        if (server->sharedFiles.contains(fileName) || server->privateFiles[cli].contains(fileName)) {
+            doTransfer(fileName);
+
+        } else {    // 一般不会进这个分支，因为客户端先前会向服务器查询可下载文件
             server->writeLog("客户端 " + server->client_name[cli] + " 所需要的文件不存在");
+            QByteArray response = QByteArray(FILE_TRANSFER_RESULT) + FT_QUERY_FAIL;
+            client->write(response);
         }
     }
 }
 
 void FileTransformer::doTransfer(QString filename) {
-    // 获取本地文件的大小
+    // 获取本地文件信息
     QFileInfo info(downloadFilePath + filename);
-    qint64 n = info.size();  // 是字节数
+    qint64 fileSize = info.size();
 
-    // 组装协议头部
-    QString body = FILE_TRANSFER_RESULT;
-    body += "011" + filename + INTERUPT + QString::number(n) + INTERUPT;
-    client->write(body.toUtf8());
-    body.clear();
+    // 发送文件头：B + "994" + fileName + INTERUPT + fileSize + INTERUPT
+    QByteArray header = QByteArray(FILE_TRANSFER_RESULT) + FT_SEND_FILE
+                      + filename.toUtf8() + INTERUPT
+                      + QByteArray::number(fileSize) + INTERUPT;
+    client->write(header);
 
-    // 传输正文
+    // 发送文件正文（分片）
     QFile file(downloadFilePath + filename);
     file.open(QIODevice::ReadOnly);
     qint64 sended = 0;
-    // 分片读取
-    while (sended < n) {
-        QByteArray chunk = file.read(qMin(n - sended, 65536LL));  // 每次64KB
+    while (sended < fileSize) {
+        QByteArray chunk = file.read(qMin(fileSize - sended, 65536LL));
         client->write(chunk);
         sended += chunk.size();
     }
-    // 读完了且完成传输，关闭
     file.close();
 
-    // 写入日志
-    server->writeLog("完成文件 [" + filename + "] 向用户 [" + server->client_name[client] +"] 的传输");
+    // 发送结束标记
+    client->write(FILE_TRANSFER_END);
+
+    server->writeLog("完成文件 [" + filename + "] 向用户 [" + server->client_name[client] + "] 的传输");
 }

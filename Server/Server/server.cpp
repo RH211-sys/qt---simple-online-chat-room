@@ -128,8 +128,9 @@ void Server::on_btnDBReset_clicked() {
 
 // 目标功能：关闭服务器，回收所有资源
 void Server::on_btnSerClose_clicked() {
-    // 先广播服务器已关闭的消息
-    broadCast(SERVER_CLOSE + QString("服务器已关闭"));
+    // 先广播服务器已关闭的消息：SERVER_CLOSE + size + INTERUPT + body
+    QByteArray closeBody = "服务器已关闭";
+    broadCast(SERVER_CLOSE + QByteArray::number(closeBody.size()) + INTERUPT + closeBody);
     server->close();
 
     for(auto& x:client_group.keys())
@@ -147,24 +148,32 @@ void Server::handleConnect() {
     // 先获取客户端的信息
     QTcpSocket* cli = server->nextPendingConnection();
 
-    // 从数据库获取前N条数据，发送给用户
+    // 从数据库获取前N条数据，打包发送给用户
+    QByteArray historyBody;
     int n = chatTableModel->rowCount();
     for(int i = 0; i < n; ++i) {
-        QString msg;    // 缓冲
+        QString line;
         for(int j = 1; j < 4; ++j) {
-            msg.push_back(chatTableModel->data(chatTableModel->index(i, j)).toString() + "  ");
+            line.push_back(chatTableModel->data(chatTableModel->index(i, j)).toString() + "  ");
         }
-        msg.push_back(chatTableModel->data(chatTableModel->index(i, 4)).toString());
-        cli->write((HISTORY_RECORD + msg + INTERUPT).toUtf8());
+        line.push_back(chatTableModel->data(chatTableModel->index(i, 4)).toString());
+        historyBody += line.toUtf8() + INTERUPT;
     }
+    QByteArray historyMsg = QByteArray(CHAT_INFO) + CHAT_HISTORY
+                          + QByteArray::number(historyBody.size()) + INTERUPT
+                          + historyBody;
+    cli->write(historyMsg);
     writeLog("已发送历史记录给该用户");
 
-    // 发送当前存在的用户名
+    // 发送当前存在的用户名（打包为一条消息）
+    QByteArray userListBody;
     for(auto& name: name_to_ip.keys()) {
-        QString msg;
-        msg.push_back(USER_INIT + name + INTERUPT);
-        cli->write(msg.toUtf8());
+        userListBody += name.toUtf8() + INTERUPT;
     }
+    QByteArray userListMsg = QByteArray(CHAT_INFO) + CHAT_USER_INIT
+                           + QByteArray::number(userListBody.size()) + INTERUPT
+                           + userListBody;
+    cli->write(userListMsg);
     writeLog("已发送目前在线客户端给该用户");
 
 
@@ -223,38 +232,55 @@ void Server::receiveCliMsg(QByteArray _flag, QTcpSocket* cli) {
         chaterModel->setStringList(chaterList);
         // 写入日志并广播
         writeLog(QString (client_name[cli] + '[' + cli->peerAddress().toString() + "] 加入了聊天室"));
-        broadCast(QString(USER_UPDATE + client_name[cli]));     // 客户端那边自己更新
+        broadCast(QString(CHAT_INFO) + CHAT_USER_JOIN + client_name[cli] + INTERUPT);     // 客户端那边自己更新
         return;
     }
     if(flag == CHAT_INFO) {
-        // 为正常的聊天广播消息,构建该消息的结构，传到数据库
-        QString msg = cli->readAll();
-        QString time = QTime::currentTime().toString();
-        QString name = client_name[cli];
-        QString sender = cli->peerAddress().toString();
-        addChatInfo(time, sender, name, msg.mid(1));
-        broadCast(msg.mid(1), cli);
-    } else if(flag == PRIVATE_SEND_REQUEST) {
-        // 为私发消息
-        QString msg = cli->readAll();
-        QString text = msg.mid(1);          // 去掉协议号
-        int pos = text.indexOf(INTERUPT);
-        QString name = text.left(pos);      // INTERUPT 前面的用户名或IP
-        QString content = text.mid(pos + 1); // INTERUPT 后面的消息内容
+        // 消费 flag 字节（worker 只 peek 没消费）
+        cli->read(1);
+        QString subType = QString::fromUtf8(cli->read(3));
+        if(subType == CHAT_BROADCAST) {
+            // "000" + size + INTERUPT + body
+            QByteArray sizeBuf;
+            char ch;
+            while (cli->getChar(&ch) && ch != INTERUPT[0]) sizeBuf.append(ch);
+            int bodySize = sizeBuf.toInt();
+            QByteArray body = cli->read(bodySize);
+            QString msg = QString::fromUtf8(body);
+            QString time = QTime::currentTime().toString();
+            QString name = client_name[cli];
+            QString sender = cli->peerAddress().toString();
+            addChatInfo(time, sender, name, msg);
+            broadCast(msg, cli);
+        } else if(subType == CHAT_PRIVATE_REQ) {
+            // "001" + targetName + INTERUPT + size + INTERUPT + body
+            QByteArray targetBuf;
+            char ch;
+            while (cli->getChar(&ch) && ch != INTERUPT[0]) targetBuf.append(ch);
+            QString targetName = QString::fromUtf8(targetBuf);
+            QByteArray sizeBuf;
+            while (cli->getChar(&ch) && ch != INTERUPT[0]) sizeBuf.append(ch);
+            int bodySize = sizeBuf.toInt();
+            QByteArray body = cli->read(bodySize);
+            QString content = QString::fromUtf8(body);
 
-        // 查看是否存在该用户，若存在则转发，否则返回错误码
-        if(name_to_ip.find(name) != name_to_ip.end()) {
-            tellPointedUser(name + " 悄悄的告诉你: " + content, name_to_ip[name], PRIVATE_MSG);
-            tellPointedUser("", cli, SEARCH_SUCCESS);
-        } else {
-            tellPointedUser("", cli, SEARCH_FAILED);
+            if(name_to_ip.find(targetName) != name_to_ip.end()) {
+                // 转发：QByteArray(CHAT_INFO) + CHAT_PRIVATE_FWD + senderName + INTERUPT + size + INTERUPT + body
+                QString senderName = client_name[cli];
+                QByteArray fwd = QByteArray(CHAT_INFO) + CHAT_PRIVATE_FWD
+                               + senderName.toUtf8() + INTERUPT
+                               + QByteArray::number(body.size()) + INTERUPT
+                               + body;
+                name_to_ip[targetName]->write(fwd);
+                tellPointedUser("", cli, SEARCH_SUCCESS);
+            } else {
+                tellPointedUser("", cli, SEARCH_FAILED);
+            }
         }
     } else if (flag == FILE_TRANSFER_REQUEST) {
         // 如果是文件传输协议，则交给子线程处理
-        cli->read(1);    // 消费掉这个表示符，因为之前获取的标识符是读方式
+        cli->read(1);    // 消费掉flag（worker只peek未消费）
         emit receiveFile(cli);
-
-
     }
 }
 
@@ -268,29 +294,34 @@ void Server::tellPointedUser(QString content, QTcpSocket *cli, QString state) {
     cli->write(msg);
 }
 
-// 不需要在调用前加聊天类型
-void Server::broadCast(QByteArray content, QTcpSocket* cli) {
-    QByteArray msg = (CHAT_INFO + client_name[cli] + ": ").toUtf8() + content;
+// 聊天消息广播：QByteArray(CHAT_INFO) + CHAT_BROADCAST + size + INTERUPT + body
+void Server::broadCast(QByteArray body, QTcpSocket* cli) {
+    QByteArray msg = QByteArray(CHAT_INFO) + CHAT_BROADCAST
+                   + QByteArray::number(body.size()) + INTERUPT
+                   + body;
     for(auto& cli_temp: client_group.keys()) {
-        cli_temp->write(msg + INTERUPT);
+        cli_temp->write(msg);
     }
     writeLog("已完成广播");
 }
 
-// 不需要在调用前加聊天类型
-void Server::broadCast(QString content, QTcpSocket* cli) {
-    QByteArray msg = (CHAT_INFO + client_name[cli] + ": " + content).toUtf8();
+// 聊天消息广播（QString重载）
+void Server::broadCast(QString body, QTcpSocket* cli) {
+    QByteArray bodyBytes = body.toUtf8();
+    QByteArray msg = QByteArray(CHAT_INFO) + CHAT_BROADCAST
+                   + QByteArray::number(bodyBytes.size()) + INTERUPT
+                   + bodyBytes;
     for(auto& cli: client_group.keys()) {
-        cli->write(msg + INTERUPT);
+        cli->write(msg);
     }
     writeLog("已完成广播");
 }
 
-// 这个函数只广播不处理,需要在调用前事先处理好
+// 原始广播：content 已是完整协议格式，直接写入
 void Server::broadCast(QString content) {
     QByteArray msg = content.toUtf8();
     for(auto& cli: client_group.keys()) {
-        cli->write(msg + INTERUPT);
+        cli->write(msg);
         cli->flush();
     }
     writeLog("已完成广播");
@@ -301,8 +332,8 @@ void Server::handleDisConnect(QTcpSocket *cli) {
     // 获取用户名
     QString user = client_name[cli];
 
-    // 广播用户的下线消息
-    broadCast(USER_UPDATE_OFF + user);
+    // 广播用户的下线消息：CHAT_INFO + CHAT_USER_OFFLINE + user + INTERUPT
+    broadCast(QString(CHAT_INFO) + CHAT_USER_OFFLINE + user + INTERUPT);
 
     // 删除在用户组的该用户的相关数据缓存
     cleanCli(cli);
@@ -330,9 +361,11 @@ void Server::on_btnKick_clicked() {
         ui->kickState->setText("状态：没有找到人");
         return;
     }
-    // 获取这个用户的ip,然后告诉他他被踢了
+    // 获取这个用户的ip,然后告诉他他被踢了：SERVER_KICK + size + INTERUPT + body
     QTcpSocket* it = name_to_ip[name];
-    tellPointedUser("服务器通知：你已被服务端踢出聊天室", it, SERVER_KICK);
+    QByteArray kickBody = "服务器通知：你已被服务端踢出聊天室";
+    QByteArray kickMsg = SERVER_KICK + QByteArray::number(kickBody.size()) + INTERUPT + kickBody;
+    it->write(kickMsg);
     // 清理it
     cleanCli(it);
 
@@ -341,10 +374,13 @@ void Server::on_btnKick_clicked() {
     chaterList.removeOne(name);
     chaterModel->setStringList(chaterList);
 
-    // 广播所有人
-    QString content = CHAT_INFO + name + "已被踢出了聊天室！！！";
-    broadCast(USER_UPDATE_OFF + name);
-    broadCast(content);
+    // 广播所有人：下线通知 + 踢出系统消息
+    broadCast(QString(CHAT_INFO) + CHAT_USER_OFFLINE + name + INTERUPT);
+    QString kickNotice = name + "已被踢出了聊天室！！！";
+    QByteArray kickNoticeBody = kickNotice.toUtf8();
+    broadCast(QByteArray(CHAT_INFO) + CHAT_BROADCAST
+              + QByteArray::number(kickNoticeBody.size()) + INTERUPT
+              + kickNoticeBody);
     cli_cnt_change(-1);
 }
 
@@ -368,17 +404,23 @@ void Server::on_btnSerMsgLimit_clicked() {
 
 void Server::addNewSharedFile(QTcpSocket *cli_source, QString fileName) {
     sharedFiles.insert(fileName);
-    tellPointedUser("文件已发送至服务器", cli_source, CHAT_INFO);
-    QString msg = "ok";
-    broadCast(FILE_TRANSFER_RESULT + msg);
+    // FT_ACK_SENDER 回执发送者：B + "993" + "000ok" + INTERUPT
+    QByteArray ack = QByteArray(FILE_TRANSFER_RESULT) + FT_ACK_SENDER + "000ok" + INTERUPT;
+    cli_source->write(ack);
+    // FT_SHARED_NOTIFY 广播所有客户端：B + "999" + fileName + INTERUPT
+    QByteArray notify = QByteArray(FILE_TRANSFER_RESULT) + FT_SHARED_NOTIFY + fileName.toUtf8() + INTERUPT;
+    broadCast(QString::fromUtf8(notify));
 }
 
 void Server::addNewPrivateFile(QTcpSocket *cli_source, QString cliTargetName, QString fileName) {
     QTcpSocket* cli_target = name_to_ip[cliTargetName];
     privateFiles[cli_target].insert(fileName);
-    tellPointedUser("文件已发送至服务器", cli_source, CHAT_INFO);
-    QString msg = "ok";
-    tellPointedUser("ok", cli_source, FILE_TRANSFER_RESULT);
+    // FT_PRIVATE_NOTIFY 通知目标用户：B + "998" + fileName + INTERUPT
+    QByteArray notify = QByteArray(FILE_TRANSFER_RESULT) + FT_PRIVATE_NOTIFY + fileName.toUtf8() + INTERUPT;
+    cli_target->write(notify);
+    // FT_ACK_SENDER 回执发送者：B + "993" + "001ok" + INTERUPT
+    QByteArray ack = QByteArray(FILE_TRANSFER_RESULT) + FT_ACK_SENDER + "001ok" + INTERUPT;
+    cli_source->write(ack);
 }
 
 

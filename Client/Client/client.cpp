@@ -1,11 +1,8 @@
 #include "client.h"
 #include "ui_Client.h"
 #include "../worker/FilesTransFerer.h"
+#include "../worker/files_receive_module/filesreceiver.h"
 #include <QDebug>
-
-
-
-
 
 Client::Client(QWidget *parent) : QWidget(parent), ui(new Ui::Client) {
     ui->setupUi(this);
@@ -14,10 +11,16 @@ Client::Client(QWidget *parent) : QWidget(parent), ui(new Ui::Client) {
     QPoint pos = ui->connectCondition->pos();
     stateElli = QRect(pos.x() + 50, pos.y() + 3, 5, 5);
     setDisConnectBtnState();
-    // 创建文件传输线程和传输工人
+
+    // 创建文件传输线程和传输工人(发送和接收)
     TransferWorker = new FilesTransFerer(nullptr, this, serverTar);
+    filesReceiver = new FilesReceiver(nullptr, serverTar, this);
     fileTransferThread = new QThread(this);
+
     TransferWorker->moveToThread(fileTransferThread);
+
+    // 启动子线程
+    fileTransferThread->start();
 
     // 设置信号和槽
     connect(serverTar, &QAbstractSocket::connected, this, &Client::isConnected);
@@ -26,6 +29,12 @@ Client::Client(QWidget *parent) : QWidget(parent), ui(new Ui::Client) {
     // 文件传输的信号和槽
     connect(this, &Client::TransferSharedFile, TransferWorker, &FilesTransFerer::TransferSharedFile);
     connect(this, &Client::TransferPrivateFile, TransferWorker, &FilesTransFerer::TransferPrivateFile);
+
+    // 文件接收的信号和槽
+    connect(this, &Client::receiveFile, filesReceiver, &FilesReceiver::bootProcess);
+    connect(this, &Client::getFiles, filesReceiver, &FilesReceiver::receiveAvailableFiles);
+    connect(this, &Client::downloadFile, filesReceiver, &FilesReceiver::downloadFile);
+
     // 设置过滤器
     ui->sendMsgInfo->installEventFilter(this);
 
@@ -143,8 +152,12 @@ void Client::on_disConnectBtn_clicked() {
 }
 
 void Client::on_sendBtn_clicked() {
-    msg = CHAT_INFO + ui->sendMsgInfo->toPlainText();
-    serverTar->write(msg.toUtf8());
+    QByteArray body = ui->sendMsgInfo->toPlainText().toUtf8();
+    // QByteArray(CHAT_INFO) + CHAT_BROADCAST + size + INTERUPT + body
+    QByteArray msg = QByteArray(CHAT_INFO) + CHAT_BROADCAST
+                   + QByteArray::number(body.size()) + INTERUPT
+                   + body;
+    serverTar->write(msg);
     ui->sendMsgInfo->clear();
     writeLog("数据已发送");
 }
@@ -175,35 +188,163 @@ void Client::sendHeartPing() {
 }
 
 void Client::receiveMsg() {
-    msg = QString::fromUtf8(serverTar->readAll());
-    // 分割信息
-    QStringList msgs = msg.split('|');
-    QString flag;
-    // 判断消息类型
-    for(auto& line: msgs) {
-        if (line.isEmpty()) continue;
-        flag = line[0];
-        if (flag == SERVER_CLOSE || flag == SERVER_KICK) {   // 服务器关闭或者被踢出
-            ui->msgInfo->addItem(line.mid(1));
-            on_disConnectBtn_clicked();     // 断开连接
-        } else if (flag == CHAT_INFO || flag == HISTORY_RECORD) {
-            ui->msgInfo->addItem(line.mid(1));
-        } else if (flag == USER_UPDATE) {
-            updateOnlineUser(line.mid(1), 1);
-            ui->msgInfo->addItem(line.mid(1) + " 加入了聊天室");
-        } else if (flag == USER_INIT) {
-            updateOnlineUser(line.mid(1), 1);
-        } else if (flag == SEARCH_SUCCESS) {
-            ui->msgInfo->addItem(line.mid(1));
+    // 循环处理粘包：每次读一个完整消息，直到缓冲区空
+    while (serverTar->bytesAvailable() > 0) {
+        char flag;
+        if (!serverTar->getChar(&flag)) break;
+
+        // 服务器关闭 / 被踢出：flag + size + INTERUPT + body
+        if (flag == SERVER_CLOSE[0] || flag == SERVER_KICK[0]) {
+            QByteArray sizeBuf;
+            char ch;
+            while (serverTar->getChar(&ch) && ch != INTERUPT[0]) sizeBuf.append(ch);
+            int bodySize = sizeBuf.toInt();
+            QByteArray body = serverTar->read(bodySize);
+            ui->msgInfo->addItem(QString::fromUtf8(body));
+            on_disConnectBtn_clicked();
+
+        } else if (flag == CHAT_INFO[0]) {
+            // 读子类型（3字节）
+            QByteArray subType = serverTar->read(3);
+
+            if (subType == CHAT_BROADCAST) {
+                // "000" + size + INTERUPT + body
+                QByteArray sizeBuf;
+                char ch;
+                while (serverTar->getChar(&ch) && ch != INTERUPT[0]) sizeBuf.append(ch);
+                int bodySize = sizeBuf.toInt();
+                QByteArray body = serverTar->read(bodySize);
+                ui->msgInfo->addItem(QString::fromUtf8(body));
+
+            } else if (subType == CHAT_PRIVATE_FWD) {
+                // "995" + senderName + INTERUPT + size + INTERUPT + body
+                QByteArray senderBuf;
+                char ch;
+                while (serverTar->getChar(&ch) && ch != INTERUPT[0]) senderBuf.append(ch);
+                QString senderName = QString::fromUtf8(senderBuf);
+                QByteArray sizeBuf;
+                while (serverTar->getChar(&ch) && ch != INTERUPT[0]) sizeBuf.append(ch);
+                int bodySize = sizeBuf.toInt();
+                QByteArray body = serverTar->read(bodySize);
+                ui->msgInfo->addItem(senderName + " 悄悄的告诉你: " + QString::fromUtf8(body));
+                writeLog("已接收私信");
+
+            } else if (subType == CHAT_HISTORY) {
+                // "996" + bodySize + INTERUPT + body{record + INTERUPT + ...}
+                QByteArray sizeBuf;
+                char ch;
+                while (serverTar->getChar(&ch) && ch != INTERUPT[0]) sizeBuf.append(ch);
+                int bodySize = sizeBuf.toInt();
+                QByteArray body = serverTar->read(bodySize);
+                int start = 0;
+                for (int i = 0; i < body.size(); i++) {
+                    if (body[i] == INTERUPT[0]) {
+                        QString record = QString::fromUtf8(body.mid(start, i - start));
+                        if (!record.isEmpty()) ui->msgInfo->addItem(record);
+                        start = i + 1;
+                    }
+                }
+
+            } else if (subType == CHAT_USER_OFFLINE) {
+                // "997" + name + INTERUPT
+                QByteArray nameBuf;
+                char ch;
+                while (serverTar->getChar(&ch) && ch != INTERUPT[0]) nameBuf.append(ch);
+                QString name = QString::fromUtf8(nameBuf);
+                updateOnlineUser(name, -1);
+                ui->msgInfo->addItem(name + "已下线");
+
+            } else if (subType == CHAT_USER_INIT) {
+                // "998" + bodySize + INTERUPT + body{name + INTERUPT + ...}
+                QByteArray sizeBuf;
+                char ch;
+                while (serverTar->getChar(&ch) && ch != INTERUPT[0]) sizeBuf.append(ch);
+                int bodySize = sizeBuf.toInt();
+                QByteArray body = serverTar->read(bodySize);
+                int start = 0;
+                for (int i = 0; i < body.size(); i++) {
+                    if (body[i] == INTERUPT[0]) {
+                        QString name = QString::fromUtf8(body.mid(start, i - start));
+                        if (!name.isEmpty()) updateOnlineUser(name, 1);
+                        start = i + 1;
+                    }
+                }
+
+            } else if (subType == CHAT_USER_JOIN) {
+                // "999" + name + INTERUPT
+                QByteArray nameBuf;
+                char ch;
+                while (serverTar->getChar(&ch) && ch != INTERUPT[0]) nameBuf.append(ch);
+                QString name = QString::fromUtf8(nameBuf);
+                updateOnlineUser(name, 1);
+                ui->msgInfo->addItem(name + " 加入了聊天室");
+            }
+
+        } else if (flag == SEARCH_SUCCESS[0]) {
+            // 私信发送成功回执
+            QByteArray content;
+            char ch;
+            while (serverTar->getChar(&ch) && ch != INTERUPT[0]) content.append(ch);
+            if (!content.isEmpty()) ui->msgInfo->addItem(QString::fromUtf8(content));
             writeLog("私信已发送");
-        } else if (flag == SEARCH_FAILED) {
+
+        } else if (flag == SEARCH_FAILED[0]) {
+            // 私信发送失败回执
+            QByteArray content;
+            char ch;
+            while (serverTar->getChar(&ch) && ch != INTERUPT[0]) content.append(ch);
             writeLog("私信发送失败，用户名填写错误");
-        } else if (flag == PRIVATE_MSG) {
-            ui->msgInfo->addItem(line.mid(1));
-            writeLog("已接受私信");
-        } else if(flag == USER_UPDATE_OFF) {
-            updateOnlineUser(line.mid(1), -1);
-            ui->msgInfo->addItem(line.mid(1) + "已下线");
+
+        } else if (flag == FILE_TRANSFER_RESULT[0]) {
+            // 文件传输协议 —— 读子类型（3字节）
+            QByteArray subType = serverTar->read(3);
+
+            if (subType == FT_SHARED_NOTIFY) {
+                // B + "999" + fileName + INTERUPT
+                QByteArray nameBuf;
+                char ch;
+                while (serverTar->getChar(&ch) && ch != INTERUPT[0]) nameBuf.append(ch);
+                QString fileName = QString::fromUtf8(nameBuf);
+                ui->msgInfo->addItem("[新共享文件] " + fileName);
+                writeLog("收到共享文件通知: " + fileName);
+
+            } else if (subType == FT_PRIVATE_NOTIFY) {
+                // B + "998" + fileName + INTERUPT
+                QByteArray nameBuf;
+                char ch;
+                while (serverTar->getChar(&ch) && ch != INTERUPT[0]) nameBuf.append(ch);
+                QString fileName = QString::fromUtf8(nameBuf);
+                ui->msgInfo->addItem("[新私发文件] " + fileName);
+                writeLog("收到私发文件通知: " + fileName);
+
+            } else if (subType == FT_QUERY_SUCCESS) {
+                emit getFiles();
+
+            } else if (subType == FT_QUERY_FAIL) {
+                // B + "995"  无body
+                writeLog("暂无可用文件");
+
+            } else if (subType == FT_SEND_FILE) {
+                // B + "994" + fileName + INTERUPT + fileSize + INTERUPT + [data] + FILE_TRANSFER_END
+                emit downloadFile();
+
+            } else if (subType == FT_ACK_SENDER) {
+                // B + "993" + status + INTERUPT
+                QByteArray statusBuf;
+                char ch;
+                while (serverTar->getChar(&ch) && ch != INTERUPT[0]) statusBuf.append(ch);
+                QString statusStr = QString::fromUtf8(statusBuf);
+                if (statusStr.startsWith("000")) {
+                    writeLog("共享文件上传成功");
+                } else if (statusStr.startsWith("001")) {
+                    if (statusStr.contains("fail")) {
+                        writeLog("私发文件上传失败，目标用户不在线");
+                    } else {
+                        writeLog("私发文件上传成功");
+                    }
+                }
+            }
+
         }
     }
 }
@@ -250,17 +391,19 @@ bool Client::eventFilter(QObject *obj, QEvent *event) {
 
 /* ==========================  私信函数模块 ========================== */
 
-// 私信
+// 私信：QByteArray(CHAT_INFO) + CHAT_PRIVATE_REQ + targetName + INTERUPT + size + INTERUPT + body
 void Client::on_btnMsgPrivate_clicked() {
-    QString text = ui->privateUserEdit->text();
+    QString targetName = ui->privateUserEdit->text();
     if(serverTar->state() != QAbstractSocket::ConnectedState) {
-        // 未连接服务器
         writeLog("未连接服务器");
         return;
     }
-    serverTar->write(QByteArray((PRIVATE_SEND_REQUEST + text +
-                                "|" + ui->sendMsgInfo->toPlainText())
-                                .toUtf8()));
+    QByteArray body = ui->sendMsgInfo->toPlainText().toUtf8();
+    QByteArray msg = QByteArray(CHAT_INFO) + CHAT_PRIVATE_REQ
+                   + targetName.toUtf8() + INTERUPT
+                   + QByteArray::number(body.size()) + INTERUPT
+                   + body;
+    serverTar->write(msg);
 }
 
 /* ==========================  文件传输函数模块 ========================== */
@@ -325,7 +468,9 @@ void Client::on_btnFilePrivate_clicked() {
 
 // 文件接收
 void Client::on_btnFileReceive_clicked() {
-
+    emit receiveFile();
 }
+
+
 
 

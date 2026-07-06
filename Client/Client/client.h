@@ -21,31 +21,44 @@
 #include <QThread>
 
 
-/*  第一位是标识符，和服务器的通信协议
- * 1表示为聊天消息
- * 2表示心跳包
- * 3表示服务器关闭
- * 4表示服务器踢出
- * 5表示向服务器请求查找用户并转发消息
- * 6表示服务器成功转发
- * 7表示服务器没有找到该用户
- */
-#define HISTORY_RECORD "0"
-#define CHAT_INFO "1"
-#define PUNPING_INFO "2"
-#define SERVER_CLOSE "3"
-#define SERVER_KICK "4"
-#define PRIVATE_SEND_REQUEST "5"
-#define SEARCH_SUCCESS "6"
-#define SEARCH_FAILED "7"
-#define INTERUPT '\n'
-#define PRIVATE_MSG "8"
-#define USER_UPDATE "9"
-#define USER_INIT '\b'
-#define USER_UPDATE_OFF '\r'
+/* ==================== 基础协议标志 ==================== */
+#define CHAT_INFO "1"             // 聊天消息父标志
+#define PUNPING_INFO "2"         // 心跳包
+#define SERVER_CLOSE "3"         // 服务器关闭
+#define SERVER_KICK "4"          // 服务器踢人
+#define FILE_TRANSFER_REQUEST "A" // 文件传输：客户端→服务端
+#define FILE_TRANSFER_RESULT "B" // 文件传输：服务端→客户端
 
-#define FILE_TRANSFER_REQUEST "A"
-#define FILE_TRANSFER_RESULT "B"
+/* ==================== 私发回执（保留独立flag） ==================== */
+#define SEARCH_SUCCESS "6"        // 私发成功回执
+#define SEARCH_FAILED "7"         // 私发失败（目标用户不存在）
+
+/* ==================== CHAT_INFO 子类型 ==================== */
+#define CHAT_BROADCAST  "000"  // C→S 广播消息
+#define CHAT_PRIVATE_REQ "001"  // C→S 私发请求
+#define CHAT_PRIVATE_FWD  "995"  // S→C 私发转发
+#define CHAT_HISTORY      "996"  // S→C 历史记录
+#define CHAT_USER_OFFLINE "997"  // S→C 用户离线
+#define CHAT_USER_INIT    "998"  // S→C 在线用户初始化
+#define CHAT_USER_JOIN    "999"  // S→C 新用户加入
+
+/* ==================== FILE_TRANSFER 子类型 ==================== */
+// 客户端→服务端
+#define FT_SHARED_UPLOAD  "000"  // 共享文件上传
+#define FT_PRIVATE_UPLOAD "001"  // 私发文件上传
+#define FT_QUERY_FILES    "002"  // 查询文件列表
+#define FT_DOWNLOAD_REQ   "003"  // 请求下载文件
+// 服务端→客户端
+#define FT_SHARED_NOTIFY  "999"  // 共享文件通知
+#define FT_PRIVATE_NOTIFY "998"  // 私发文件通知
+#define FT_QUERY_SUCCESS  "997"  // 查询文件列表成功
+#define FT_QUERY_FAIL     "995"  // 查询文件列表失败
+#define FT_SEND_FILE      "994"  // 发送文件数据
+#define FT_ACK_SENDER     "993"  // 回应发送源
+
+/* ==================== 通用分隔符 ==================== */
+#define INTERUPT "\x1E"               // 字段分隔符（两端统一）
+#define FILE_TRANSFER_END "\x03"     // 文件传输结束标记
 
 
 /*
@@ -62,8 +75,9 @@
 #define NAME_EDIT_INFO 2
 #define WITHOUT_CONNECTION 3
 
-
+/* ==================== 文件传输模块类声明 ==================== */
 class FilesTransFerer;
+class FilesReceiver;
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class Client; }
@@ -92,9 +106,13 @@ public slots:
     void sendHeartPing();      // 连接后发送心跳包
     void receiveMsg();      // 接收服务器的消息
 
+    /* ================== 客户端发射信号(跨线程沟通) =================== */
     signals:
     void TransferSharedFile(QDir dir);
     void TransferPrivateFile(QDir dir, QString targetClientName);
+    void receiveFile();
+    void getFiles();
+    void downloadFile();
 
 
 public:
@@ -119,6 +137,9 @@ private:
     /* ================= 文件传输模块 ================= */
     QThread* fileTransferThread;
     FilesTransFerer* TransferWorker;
+    FilesReceiver* filesReceiver;
+
+
 
 private:
     void setConnectBtnState();     // 设置连接后的按钮状态
@@ -127,7 +148,6 @@ private:
     void writeLog(QString log);        // 写下程序执行日志
     void paintStateDot();
     void updateOnlineUser(QString name, int alterMode);     // 客户端在线人数实时显示
-
 };
 
 
