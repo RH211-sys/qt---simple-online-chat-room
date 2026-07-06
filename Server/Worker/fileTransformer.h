@@ -27,7 +27,7 @@ public:
 public slots:
     // 槽函数
     void doReceiveFile(QTcpSocket* cli);   // 接收来自客户端的文件
-    void doTransfer(const char* dir, QTcpSocket* cli);       // 将文件传送到指定客户端
+    void doTransfer(QString filename);       // 将文件传送到指定客户端
 
 private:
     Server* server;     // 指向服务端
