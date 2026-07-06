@@ -1,11 +1,6 @@
-//
-// Created by mechreuo on 2026/6/13.
-//
-
-// You may need to build the project (run Qt uic code generator) to get "ui_Client.h" resolved
-
 #include "client.h"
 #include "ui_Client.h"
+#include "../worker/FilesTransFerer.h"
 #include <QDebug>
 
 
@@ -19,10 +14,18 @@ Client::Client(QWidget *parent) : QWidget(parent), ui(new Ui::Client) {
     QPoint pos = ui->connectCondition->pos();
     stateElli = QRect(pos.x() + 50, pos.y() + 3, 5, 5);
     setDisConnectBtnState();
+    // 创建文件传输线程和传输工人
+    TransferWorker = new FilesTransFerer(nullptr, this, serverTar);
+    fileTransferThread = new QThread(this);
+    TransferWorker->moveToThread(fileTransferThread);
+
     // 设置信号和槽
     connect(serverTar, &QAbstractSocket::connected, this, &Client::isConnected);
     connect(heartTime, &QTimer::timeout, this, &Client::sendHeartPing);
     connect(serverTar, &QTcpSocket::readyRead, this, &Client::receiveMsg);
+    // 文件传输的信号和槽
+    connect(this, &Client::TransferSharedFile, TransferWorker, &FilesTransFerer::TransferSharedFile);
+    connect(this, &Client::TransferPrivateFile, TransferWorker, &FilesTransFerer::TransferPrivateFile);
     // 设置过滤器
     ui->sendMsgInfo->installEventFilter(this);
 
@@ -42,6 +45,10 @@ void Client::setConnectBtnState() {
     ui->disConnectBtn->setEnabled(true);
     ui->connectBtn->setEnabled(false);
     ui->sendBtn->setEnabled(false);
+    /* ===== 文件传输模块按钮设置 ===== */
+    ui->btnFilePrivate->setEnabled(false);
+    ui->btnFileShared->setEnabled(false);
+    ui->btnFilesReceive->setEnabled(false);
     ui->connectCondition->setText("正在连接");
     connectState = 2;
     paintStateDot();
@@ -52,6 +59,11 @@ void Client::setHavingConnectBtnState() {
     ui->disConnectBtn->setEnabled(true);
     ui->connectBtn->setEnabled(false);
     ui->sendBtn->setEnabled(true);
+    /* ===== 文件传输模块按钮设置 ===== */
+    ui->btnFilePrivate->setEnabled(true);
+    ui->btnFileShared->setEnabled(true);
+    ui->btnFilesReceive->setEnabled(true);
+
     ui->connectCondition->setText("已连接");
     connectState = 1;
     paintStateDot();
@@ -62,6 +74,11 @@ void Client::setDisConnectBtnState() {
     ui->disConnectBtn->setEnabled(false);
     ui->connectBtn->setEnabled(true);
     ui->sendBtn->setEnabled(false);
+    /* ===== 文件传输模块按钮设置 ===== */
+    ui->btnFilePrivate->setEnabled(false);
+    ui->btnFileShared->setEnabled(false);
+    ui->btnFilesReceive->setEnabled(false);
+
     ui->connectCondition->setText("未连接");
     connectState = 0;
     paintStateDot();
@@ -84,6 +101,8 @@ void Client::updateOnlineUser(QString name, int alterMode) {
 void Client::writeLog(QString log) {
     ui->logInfo->addItem(log);
 }
+
+
 
 /* ========================== 槽函数/基本模块 ========================== */
 
@@ -244,19 +263,64 @@ void Client::on_btnMsgPrivate_clicked() {
                                 .toUtf8()));
 }
 
+/* ==========================  文件传输函数模块 ========================== */
+
 // 文件浏览
 void Client::on_btnFileDirSearch_clicked() {
-
+    QString filePath = QFileDialog::getOpenFileName(
+            this,                       // 父窗口
+            "选择要发送的文件",            // 弹窗标题
+            QDir::homePath(),            // 默认打开的目录（用户主目录）
+            "所有文件 (*.*)"              // 文件类型过滤器
+    );
+    ui->fileDirEdit->setText(filePath);
 }
 
 // 文件共享
 void Client::on_btnFileShared_clicked() {
+    // 先获取文件名
+    QString filePath = ui->fileDirEdit->text();
+    QFileInfo info(filePath);
+    QDir dir = info.dir();
+    // 判断文件是否存在
+    if(!info.exists()) {
+        ui->fileDirEdit->setText("该文件不存在");
+        return;
+    }
+    // 文件存在，开始发送
+    /* =================== 文件上传模块 ================== */
+    // 上传文件头
+    QString fileMsg = FILE_TRANSFER_REQUEST;
+    fileMsg += "000" + info.fileName() + INTERUPT + QString::number(info.size()) + INTERUPT;
+    serverTar->write(fileMsg.toUtf8());
+    fileMsg.clear();
 
+    // 上传文件正文
+    emit TransferSharedFile(dir);
 }
 
 // 文件私发
 void Client::on_btnFilePrivate_clicked() {
+    // 获取要私发的用户名
+    QString name = ui->privateUserEdit->text();
+    if(!chaterList.contains(name)) {
+        writeLog("该用户不在线");
+        return;
+    }
 
+    // 获取文件名
+    QString filePath = ui->fileDirEdit->text();
+    QFileInfo info(filePath);
+    QDir dir = info.dir();
+    // 判断文件是否存在,正常情况都是存在
+    if(!info.exists()) {
+        ui->fileDirEdit->setText("该文件不存在");
+        return;
+    }
+    // 文件存在，开始发送
+    /* =================== 文件上传模块 ================== */
+    // 上传文件正文
+    emit TransferPrivateFile(dir, name);
 }
 
 // 文件接收

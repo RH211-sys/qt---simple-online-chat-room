@@ -21,6 +21,8 @@ add_executable(project_client main.cpp
         Client/client.ui
         serverSocket/serverSocket.cpp
         serverSocket/serverSocket.h
+        worker/FilesTransFerer.cpp
+        worker/FilesTransFerer.h
 )
 target_link_libraries(project_client
         Qt::Core

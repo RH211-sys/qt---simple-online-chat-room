@@ -215,7 +215,7 @@
            <item>
             <layout class="QHBoxLayout" name="horizontalLayout_9">
              <item>
-              <widget class="QPushButton" name="btnFilePrivate_2">
+              <widget class="QPushButton" name="btnFilesReceive">
                <property name="text">
                 <string>文件收取(无可收取文件)</string>
                </property>

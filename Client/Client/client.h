@@ -16,6 +16,11 @@
 #include <QPixmap>
 #include <QKeyEvent>
 #include <QStringListModel>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QThread>
+
+
 /*  第一位是标识符，和服务器的通信协议
  * 1表示为聊天消息
  * 2表示心跳包
@@ -58,11 +63,14 @@
 #define WITHOUT_CONNECTION 3
 
 
+class FilesTransFerer;
+
 QT_BEGIN_NAMESPACE
 namespace Ui { class Client; }
 QT_END_NAMESPACE
 
 class Client : public QWidget {
+    friend class FilesTransFerer;
     Q_OBJECT
 public:
     explicit Client(QWidget *parent = nullptr);
@@ -83,10 +91,14 @@ public slots:
     void isConnected(); // 连接后的槽函数
     void sendHeartPing();      // 连接后发送心跳包
     void receiveMsg();      // 接收服务器的消息
+
+    signals:
+    void TransferSharedFile(QDir dir);
+    void TransferPrivateFile(QDir dir, QString targetClientName);
+
+
 public:
     bool eventFilter(QObject *obj, QEvent *event) override;
-
-
 
 private:
     Ui::Client *ui;
@@ -104,6 +116,9 @@ private:
     QStringListModel *chaterModel;
     QStringList chaterList;
 
+    /* ================= 文件传输模块 ================= */
+    QThread* fileTransferThread;
+    FilesTransFerer* TransferWorker;
 
 private:
     void setConnectBtnState();     // 设置连接后的按钮状态
