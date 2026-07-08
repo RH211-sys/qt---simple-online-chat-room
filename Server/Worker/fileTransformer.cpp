@@ -86,6 +86,7 @@ void FileTransformer::doReceiveFile(QTcpSocket* cli) {
             QByteArray failAck = QByteArray(FILE_TRANSFER_RESULT) + FT_ACK_SENDER
                                + "001fail" + FILE_TRANSFER_END;
             cli->write(failAck);
+            client->flush();
             return;
         }
 
@@ -117,6 +118,7 @@ void FileTransformer::doReceiveFile(QTcpSocket* cli) {
             } else {
                 server->writeLog("成功响应");
             }
+            client->flush();
 
         } else {
             // B + "997" + bodySize + INTERUPT + body{fileName + INTERUPT...}
@@ -124,6 +126,7 @@ void FileTransformer::doReceiveFile(QTcpSocket* cli) {
                                 + QByteArray::number(fileListBody.size()) + INTERUPT
                                 + fileListBody;
             client->write(response);
+            client->flush();
         }
 
     /* ============== 文件下载模块 =============== */
@@ -138,6 +141,7 @@ void FileTransformer::doReceiveFile(QTcpSocket* cli) {
             server->writeLog("客户端 " + server->client_name[cli] + " 所需要的文件不存在");
             QByteArray response = QByteArray(FILE_TRANSFER_RESULT) + FT_QUERY_FAIL;
             client->write(response);
+            client->flush();
         }
     }
 }
@@ -167,6 +171,7 @@ void FileTransformer::doTransfer(QString filename) {
 
     // 发送结束标记
     client->write(FILE_TRANSFER_END);
+    client->flush();
 
     server->writeLog("完成文件 [" + filename + "] 向用户 [" + server->client_name[client] + "] 的传输");
 }

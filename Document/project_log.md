@@ -354,3 +354,7 @@ receiveCliMsg(QByteArray _flag, QTcpSocket* cli)这里：
 ```
 
 经测试，服务端使用锁来保护socket的方案失效，不过，也有可能是客户端不加锁的原因，或者是服务端的其他原因
+
+现在判断可能是忘记加flush接口的原因
+
+> Qt中，write只是写入到缓冲区，经过flush再发送给客户端
