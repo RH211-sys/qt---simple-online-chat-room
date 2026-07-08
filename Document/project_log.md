@@ -358,3 +358,5 @@ receiveCliMsg(QByteArray _flag, QTcpSocket* cli)这里：
 现在判断可能是忘记加flush接口的原因
 
 > Qt中，write只是写入到缓冲区，经过flush再发送给客户端
+
+现在这个问题已解决，但最好还是把所有的socket读写都用锁来保护，防止临界区竞态
