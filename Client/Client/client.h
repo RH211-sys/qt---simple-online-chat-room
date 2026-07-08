@@ -100,7 +100,7 @@ public slots:
     void on_btnFileDirSearch_clicked(); // 文件“浏览”按钮
     void on_btnFileShared_clicked();    // 确认文件共享
     void on_btnFilePrivate_clicked();   // 文件私发
-    void on_btnFileReceive_clicked();   // 文件接收
+    void on_btnFilesReceive_clicked();   // 文件接收
 
     void isConnected(); // 连接后的槽函数
     void sendHeartPing();      // 连接后发送心跳包

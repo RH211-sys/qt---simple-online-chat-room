@@ -217,7 +217,7 @@
              <item>
               <widget class="QPushButton" name="btnFilesReceive">
                <property name="text">
-                <string>文件收取(无可收取文件)</string>
+                <string>文件收取</string>
                </property>
               </widget>
              </item>

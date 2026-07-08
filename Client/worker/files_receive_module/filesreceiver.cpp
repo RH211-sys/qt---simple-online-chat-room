@@ -40,6 +40,14 @@ void FilesReceiver::saveFile(QString fileName, qint64 fileSize) {
         received += chunk.size();
     }
     file.close();
+    QString flag = targetServer->peek(1);
+    // 消费并检查是否读完
+    if(flag == FILE_TRANSFER_END) {
+        targetServer->read(1);  // 消费 FILE_TRANSFER_END
+        ui->logInfo->addItem("下载成功");
+    } else {
+        ui->logInfo->addItem("下载的文件可能不完整");
+    }
 }
 
 /* ===================== 通信槽函数 ==================== */
@@ -92,11 +100,10 @@ void FilesReceiver::on_btnCloseList_clicked() {
 
 // 文件浏览
 void FilesReceiver::on_btnDownloadPathSearch_clicked() {
-    QString filePath = QFileDialog::getOpenFileName(
+    QString filePath = QFileDialog::getExistingDirectory(
             this,                       // 父窗口
-            "选择要发送的文件",            // 弹窗标题
-            QDir::homePath(),            // 默认打开的目录（用户主目录）
-            "所有文件 (*.*)"              // 文件类型过滤器
+            "选择下载目录",              // 弹窗标题
+            QDir::homePath()             // 默认打开的目录（用户主目录）
     );
     ui->downloadPathEdit->setText(filePath);
 }

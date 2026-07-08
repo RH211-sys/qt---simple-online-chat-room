@@ -80,7 +80,7 @@ void FileTransformer::doReceiveFile(QTcpSocket* cli) {
             cli->read(1);  // FILE_TRANSFER_END
             // 通知发送者失败
             QByteArray failAck = QByteArray(FILE_TRANSFER_RESULT) + FT_ACK_SENDER
-                               + "001fail" + INTERUPT;
+                               + "001fail" + FILE_TRANSFER_END;
             cli->write(failAck);
             return;
         }
@@ -90,7 +90,8 @@ void FileTransformer::doReceiveFile(QTcpSocket* cli) {
 
     /* ============== 文件查询模块 =============== */
     } else if (subType == FT_QUERY_FILES) {
-        // "A" + "002"  无body，直接返回文件列表
+        // "A" + "002" + FILE_TRANSFER_END，消费尾部结束标记
+        cli->read(1);
         QByteArray fileListBody;
         for (auto& x : server->sharedFiles) {
             fileListBody += x.toUtf8() + INTERUPT;
@@ -113,8 +114,8 @@ void FileTransformer::doReceiveFile(QTcpSocket* cli) {
 
     /* ============== 文件下载模块 =============== */
     } else if (subType == FT_DOWNLOAD_REQ) {
-        // "A" + "003" + fileName + INTERUPT
-        QString fileName = QString::fromUtf8(readUntil(client, INTERUPT));
+        // "A" + "003" + fileName + FILE_TRANSFER_END
+        QString fileName = QString::fromUtf8(readUntil(client, FILE_TRANSFER_END));
 
         if (server->sharedFiles.contains(fileName) || server->privateFiles[cli].contains(fileName)) {
             doTransfer(fileName);

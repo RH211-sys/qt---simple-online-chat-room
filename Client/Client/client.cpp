@@ -300,19 +300,19 @@ void Client::receiveMsg() {
             QByteArray subType = serverTar->read(3);
 
             if (subType == FT_SHARED_NOTIFY) {
-                // B + "999" + fileName + INTERUPT
+                // B + "999" + fileName + FILE_TRANSFER_END
                 QByteArray nameBuf;
                 char ch;
-                while (serverTar->getChar(&ch) && ch != INTERUPT[0]) nameBuf.append(ch);
+                while (serverTar->getChar(&ch) && ch != FILE_TRANSFER_END[0]) nameBuf.append(ch);
                 QString fileName = QString::fromUtf8(nameBuf);
                 ui->msgInfo->addItem("[新共享文件] " + fileName);
                 writeLog("收到共享文件通知: " + fileName);
 
             } else if (subType == FT_PRIVATE_NOTIFY) {
-                // B + "998" + fileName + INTERUPT
+                // B + "998" + fileName + FILE_TRANSFER_END
                 QByteArray nameBuf;
                 char ch;
-                while (serverTar->getChar(&ch) && ch != INTERUPT[0]) nameBuf.append(ch);
+                while (serverTar->getChar(&ch) && ch != FILE_TRANSFER_END[0]) nameBuf.append(ch);
                 QString fileName = QString::fromUtf8(nameBuf);
                 ui->msgInfo->addItem("[新私发文件] " + fileName);
                 writeLog("收到私发文件通知: " + fileName);
@@ -329,10 +329,10 @@ void Client::receiveMsg() {
                 emit downloadFile();
 
             } else if (subType == FT_ACK_SENDER) {
-                // B + "993" + status + INTERUPT
+                // B + "993" + status + FILE_TRANSFER_END
                 QByteArray statusBuf;
                 char ch;
-                while (serverTar->getChar(&ch) && ch != INTERUPT[0]) statusBuf.append(ch);
+                while (serverTar->getChar(&ch) && ch != FILE_TRANSFER_END[0]) statusBuf.append(ch);
                 QString statusStr = QString::fromUtf8(statusBuf);
                 if (statusStr.startsWith("000")) {
                     writeLog("共享文件上传成功");
@@ -346,6 +346,9 @@ void Client::receiveMsg() {
             }
 
         }
+        // 是其他字符，可能是FILE_TRANSFER_END等
+        else continue;
+
     }
 }
 
@@ -432,13 +435,6 @@ void Client::on_btnFileShared_clicked() {
     }
     // 文件存在，开始发送
     /* =================== 文件上传模块 ================== */
-    // 上传文件头
-    QString fileMsg = FILE_TRANSFER_REQUEST;
-    fileMsg += "000" + info.fileName() + INTERUPT + QString::number(info.size()) + INTERUPT;
-    serverTar->write(fileMsg.toUtf8());
-    fileMsg.clear();
-
-    // 上传文件正文
     emit TransferSharedFile(dir);
 }
 
@@ -462,12 +458,11 @@ void Client::on_btnFilePrivate_clicked() {
     }
     // 文件存在，开始发送
     /* =================== 文件上传模块 ================== */
-    // 上传文件正文
     emit TransferPrivateFile(dir, name);
 }
 
 // 文件接收
-void Client::on_btnFileReceive_clicked() {
+void Client::on_btnFilesReceive_clicked() {
     emit receiveFile();
 }
 

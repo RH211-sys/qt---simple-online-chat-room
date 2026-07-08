@@ -404,11 +404,11 @@ void Server::on_btnSerMsgLimit_clicked() {
 
 void Server::addNewSharedFile(QTcpSocket *cli_source, QString fileName) {
     sharedFiles.insert(fileName);
-    // FT_ACK_SENDER 回执发送者：B + "993" + "000ok" + INTERUPT
-    QByteArray ack = QByteArray(FILE_TRANSFER_RESULT) + FT_ACK_SENDER + "000ok" + INTERUPT;
+    // FT_ACK_SENDER 回执发送者：B + "993" + "000ok" + FILE_TRANSFER_END
+    QByteArray ack = QByteArray(FILE_TRANSFER_RESULT) + FT_ACK_SENDER + "000ok" + FILE_TRANSFER_END;
     cli_source->write(ack);
-    // FT_SHARED_NOTIFY 广播所有客户端：B + "999" + fileName + INTERUPT
-    QByteArray notify = QByteArray(FILE_TRANSFER_RESULT) + FT_SHARED_NOTIFY + fileName.toUtf8() + INTERUPT;
+    // FT_SHARED_NOTIFY 广播所有客户端：B + "999" + fileName + FILE_TRANSFER_END
+    QByteArray notify = QByteArray(FILE_TRANSFER_RESULT) + FT_SHARED_NOTIFY + fileName.toUtf8() + FILE_TRANSFER_END;
     broadCast(QString::fromUtf8(notify));
 }
 
@@ -416,10 +416,10 @@ void Server::addNewPrivateFile(QTcpSocket *cli_source, QString cliTargetName, QS
     QTcpSocket* cli_target = name_to_ip[cliTargetName];
     privateFiles[cli_target].insert(fileName);
     // FT_PRIVATE_NOTIFY 通知目标用户：B + "998" + fileName + INTERUPT
-    QByteArray notify = QByteArray(FILE_TRANSFER_RESULT) + FT_PRIVATE_NOTIFY + fileName.toUtf8() + INTERUPT;
+    QByteArray notify = QByteArray(FILE_TRANSFER_RESULT) + FT_PRIVATE_NOTIFY + fileName.toUtf8() + FILE_TRANSFER_END;
     cli_target->write(notify);
-    // FT_ACK_SENDER 回执发送者：B + "993" + "001ok" + INTERUPT
-    QByteArray ack = QByteArray(FILE_TRANSFER_RESULT) + FT_ACK_SENDER + "001ok" + INTERUPT;
+    // FT_ACK_SENDER 回执发送者：B + "993" + "001ok" + FILE_TRANSFER_END
+    QByteArray ack = QByteArray(FILE_TRANSFER_RESULT) + FT_ACK_SENDER + "001ok" + FILE_TRANSFER_END;
     cli_source->write(ack);
 }
 
