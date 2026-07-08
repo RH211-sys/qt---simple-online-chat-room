@@ -85,6 +85,7 @@ QT_END_NAMESPACE
 
 class Client : public QWidget {
     friend class FilesTransFerer;
+    friend class FilesReceiver;
     Q_OBJECT
 public:
     explicit Client(QWidget *parent = nullptr);

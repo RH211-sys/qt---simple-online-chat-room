@@ -71,6 +71,7 @@ public slots:
 private:
     void recycle();
     void saveFile(QString fileName, qint64 fileSize);
+    void writeLog(QString log);
 
 public slots:
     void bootProcess();

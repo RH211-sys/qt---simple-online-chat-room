@@ -49,6 +49,7 @@ QString FileTransformer::saveFile(QTcpSocket* cli, const QString& originalName, 
 
 void FileTransformer::doReceiveFile(QTcpSocket* cli) {
     if(cli != client) return;
+    cli->read(1);
 
     // 读取子类型（3字节）
     QString subType = QString::fromUtf8(client->read(3));
@@ -102,8 +103,18 @@ void FileTransformer::doReceiveFile(QTcpSocket* cli) {
 
         if (fileListBody.isEmpty()) {
             // 无可下载文件
-            QByteArray response = QByteArray(FILE_TRANSFER_RESULT) + FT_QUERY_FAIL;
-            client->write(response);
+            QString res = FILE_TRANSFER_RESULT;
+            res += FT_QUERY_FAIL;
+            QByteArray response = res.toUtf8();
+            quint16 ok = client->write(response);
+            quint16 check = -1;
+            if(ok == check) {
+                // write函数错误返回
+                server->writeLog("无法向客户端写socket");
+            } else {
+                server->writeLog("成功响应");
+            }
+
         } else {
             // B + "997" + bodySize + INTERUPT + body{fileName + INTERUPT...}
             QByteArray response = QByteArray(FILE_TRANSFER_RESULT) + FT_QUERY_SUCCESS

@@ -14,7 +14,7 @@
 void Server::flushDB() {
     int currentRow = chatTableModel->rowCount();
     if(currentRow >= N) {
-        chatTableModel->removeRows(0, currentRow - N + 1);
+        chatTableModel->removeRows(0, currentRow - N);
     }
     chatTableModel->submitAll();
     chatTableModel->select();
@@ -103,7 +103,7 @@ void Server::cleanCli(QTcpSocket* cli) {
     client_group[cli]->quit();
     client_group[cli]->wait();
 
-    //清理红黑树
+    // 清理红黑树
     auto its = client_group.find(cli);
     auto itIP = client_name.find(cli);
     auto reflect = name_to_ip.find(client_name[cli]);
@@ -213,6 +213,7 @@ void Server::handleConnect() {
 // 处理接收到的用户的数据，需要放到数据库并广播
 // 需要注意第一位是标识符(flag)
 void Server::receiveCliMsg(QByteArray _flag, QTcpSocket* cli) {
+
     QString flag = QString::fromUtf8(_flag);
     // 检查接收数据的类型,如果是心跳包，则直接略过，否则视为聊天消息进行处理
     if(flag == PUNPING_INFO) {
@@ -255,6 +256,8 @@ void Server::receiveCliMsg(QByteArray _flag, QTcpSocket* cli) {
             QString name = client_name[cli];
             QString sender = cli->peerAddress().toString();
             addChatInfo(time, sender, name, msg);
+            // 把发送者也放进去
+            msg = client_name[cli] + " :" + msg;
             broadCast(msg, cli);
         } else if(subType == CHAT_PRIVATE_REQ) {
             // "001" + targetName + INTERUPT + size + INTERUPT + body
@@ -283,7 +286,8 @@ void Server::receiveCliMsg(QByteArray _flag, QTcpSocket* cli) {
         }
     } else if (flag == FILE_TRANSFER_REQUEST) {
         // 如果是文件传输协议，则交给子线程处理
-        cli->read(1);    // 消费掉flag（worker只peek未消费）
+        // QByteArray ch = cli->read(1);    // 消费掉flag（worker只peek未消费）
+
         emit receiveFile(cli);
     }
 }
@@ -395,7 +399,7 @@ void Server::on_btnSerMsgLimit_clicked() {
     int curN;
     bool inputCheck;
     curN = ui->msgNumEdit->text().toInt(&inputCheck);
-    if(inputCheck == false) {
+    if(!inputCheck) {
         ui->msgNumState->setText("状态：错误的输入");
     } else {
         N = curN;

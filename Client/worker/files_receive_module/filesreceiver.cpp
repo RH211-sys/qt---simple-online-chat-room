@@ -24,6 +24,11 @@ void FilesReceiver::recycle() {
     ui->logInfo->clear();
     // 清空下载文件名输入框
     ui->downloadFileEdit->clear();
+
+}
+// 写入日志
+void FilesReceiver::writeLog(QString log) {
+    ui->logInfo->addItem(log);
 }
 
 void FilesReceiver::saveFile(QString fileName, qint64 fileSize) {

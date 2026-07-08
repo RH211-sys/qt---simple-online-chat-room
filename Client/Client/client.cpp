@@ -44,6 +44,7 @@ Client::Client(QWidget *parent) : QWidget(parent), ui(new Ui::Client) {
 }
 
 Client::~Client() {
+    filesReceiver->~FilesReceiver();
     delete ui;
 }
 
@@ -175,16 +176,20 @@ void Client::on_clearChatLog_clicked() {
 void Client::isConnected() {
     // 设置连接后的按钮状态
     setHavingConnectBtnState();
+#if 1
     // 开始向服务器发送心跳包
     heartTime->start(3000);     // 每3s发一次
     serverTar->write(name.toUtf8());
+#endif
     writeLog("完成连接处理");
 }
 
 void Client::sendHeartPing() {
+#if 1
     serverTar->write(PUNPING_INFO);
     heartTime->start(3000);     // 重置时间
     writeLog("已发送心跳包");
+#endif
 }
 
 void Client::receiveMsg() {
@@ -322,7 +327,8 @@ void Client::receiveMsg() {
 
             } else if (subType == FT_QUERY_FAIL) {
                 // B + "995"  无body
-                writeLog("暂无可用文件");
+                filesReceiver->writeLog("暂无可用文件");
+                serverTar->read(1);
 
             } else if (subType == FT_SEND_FILE) {
                 // B + "994" + fileName + INTERUPT + fileSize + INTERUPT + [data] + FILE_TRANSFER_END
