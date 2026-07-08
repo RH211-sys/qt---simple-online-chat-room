@@ -26,9 +26,8 @@ FilesTransFerer::~FilesTransFerer() {
 
 }
 
-void FilesTransFerer::TransferSharedFile(QDir dir) {
+void FilesTransFerer::TransferSharedFile(QFileInfo& info) {
     // 获取文件信息
-    QFileInfo info(dir.path());
     QString filename = info.fileName();
     qint64 n = info.size();
 
@@ -42,9 +41,8 @@ void FilesTransFerer::TransferSharedFile(QDir dir) {
     fileTransfer(info, targetServer);
 }
 
-void FilesTransFerer::TransferPrivateFile(QDir dir, QString targetClientName) {
+void FilesTransFerer::TransferPrivateFile(QFileInfo& info, QString targetClientName) {
     // 获取文件信息
-    QFileInfo info(dir.path());
     QString filename = info.fileName();
     qint64 n = info.size();
 

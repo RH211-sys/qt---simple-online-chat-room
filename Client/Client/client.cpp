@@ -435,7 +435,7 @@ void Client::on_btnFileShared_clicked() {
     }
     // 文件存在，开始发送
     /* =================== 文件上传模块 ================== */
-    emit TransferSharedFile(dir);
+    emit TransferSharedFile(info);
 }
 
 // 文件私发
@@ -458,7 +458,7 @@ void Client::on_btnFilePrivate_clicked() {
     }
     // 文件存在，开始发送
     /* =================== 文件上传模块 ================== */
-    emit TransferPrivateFile(dir, name);
+    emit TransferPrivateFile(info, name);
 }
 
 // 文件接收

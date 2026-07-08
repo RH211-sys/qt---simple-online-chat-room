@@ -215,7 +215,11 @@ void Server::handleConnect() {
 void Server::receiveCliMsg(QByteArray _flag, QTcpSocket* cli) {
     QString flag = QString::fromUtf8(_flag);
     // 检查接收数据的类型,如果是心跳包，则直接略过，否则视为聊天消息进行处理
-    if(flag == PUNPING_INFO) return;
+    if(flag == PUNPING_INFO) {
+        // 消费心跳协议类型
+        cli->read(1);
+        return;
+    }
     // 如果是第一个数据包，那么这个数据包是用户的name，需要存起来
     auto it = client_firstBag_set.find(cli);
     if(it != client_firstBag_set.end()) {

@@ -17,8 +17,8 @@ public:
     ~FilesTransFerer() override;
 
 public slots:
-    void TransferSharedFile(QDir dir);
-    void TransferPrivateFile(QDir dir, QString targetClientName);
+    void TransferSharedFile(QFileInfo& info);
+    void TransferPrivateFile(QFileInfo& info, QString targetClientName);
 
 private:
     Client* localClient;

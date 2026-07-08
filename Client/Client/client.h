@@ -108,8 +108,8 @@ public slots:
 
     /* ================== 客户端发射信号(跨线程沟通) =================== */
     signals:
-    void TransferSharedFile(QDir dir);
-    void TransferPrivateFile(QDir dir, QString targetClientName);
+    void TransferSharedFile(QFileInfo& fileInfo);
+    void TransferPrivateFile(QFileInfo& fileInfo, QString targetClientName);
     void receiveFile();
     void getFiles();
     void downloadFile();
