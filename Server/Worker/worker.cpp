@@ -6,9 +6,10 @@
 #include <QByteArray>
 #include <QThread>
 
-Worker::Worker(QObject *parent, QTcpServer *ser, QTcpSocket *cli) : QObject(parent) {
+Worker::Worker(QObject *parent, QTcpServer *ser, QTcpSocket *cli, QMutex* mutex) : QObject(parent) {
     server = ser;
     client = cli;
+    socketMutex = mutex;
     checkTime = new QTimer(this);
     connect(cli, &QTcpSocket::readyRead, this, &Worker::read_msg_cli);
     connect(cli, &QTcpSocket::disconnected, this, &Worker::doExit);
@@ -32,8 +33,10 @@ void Worker::doExit() {
 }
 
 void Worker::read_msg_cli() {
+    QMutexLocker locker(socketMutex);
     checkTime->start(punpingTime);
     QByteArray firstByte = client->peek(1);
+    locker.unlock();  // 读完即释放，emit不持锁
     emit send_server(firstByte, client);
 }
 

@@ -16,9 +16,10 @@ static QByteArray readUntil(QTcpSocket* cli, QString _flag) {
     return res;
 }
 
-FileTransformer::FileTransformer(QObject *parent, Server *ser, QTcpSocket *cli) {
+FileTransformer::FileTransformer(QObject *parent, Server *ser, QTcpSocket *cli, QMutex* mutex) {
     server = ser;
     client = cli;
+    socketMutex = mutex;
     downloadFileDepot = QDir(downloadFilePath);
 }
 
@@ -48,7 +49,9 @@ QString FileTransformer::saveFile(QTcpSocket* cli, const QString& originalName, 
 }
 
 void FileTransformer::doReceiveFile(QTcpSocket* cli) {
+    server->writeLog("doReceiveFile subType: " + QString::fromUtf8(client->peek(4)));
     if(cli != client) return;
+    QMutexLocker locker(socketMutex);
     cli->read(1);
 
     // 读取子类型（3字节）
@@ -140,6 +143,7 @@ void FileTransformer::doReceiveFile(QTcpSocket* cli) {
 }
 
 void FileTransformer::doTransfer(QString filename) {
+    QMutexLocker locker(socketMutex);
     // 获取本地文件信息
     QFileInfo info(downloadFilePath + filename);
     qint64 fileSize = info.size();

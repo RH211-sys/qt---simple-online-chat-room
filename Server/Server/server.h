@@ -19,6 +19,7 @@
 #include <QRandomGenerator>
 #include <QSqlQuery>
 #include <QStringListModel>
+#include <QMutex>
 
 /* ==================== 基础协议标志 ==================== */
 #define CHAT_INFO "1"             // 聊天消息父标志
@@ -111,6 +112,7 @@ private:
     // 网络相关对象
     QTcpServer *server;  // Tcp服务器对象
     QMap<QTcpSocket *, QThread *> client_group;
+    QMap<QTcpSocket *, QMutex *> client_mutexs;   // 保护每个客户端socket的互斥锁
     QMap<QTcpSocket *, QString> client_name;
     QMap<QString, QTcpSocket *> name_to_ip;     // 反射
 

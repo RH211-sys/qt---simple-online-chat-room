@@ -9,11 +9,12 @@
 #include <QTcpSocket>
 #include <QTcpServer>
 #include <QTimer>
+#include <QMutex>
 
 class Worker : public QObject {
     Q_OBJECT
 public:
-    explicit Worker(QObject *parent = nullptr, QTcpServer *ser = nullptr, QTcpSocket *cli = nullptr);
+    explicit Worker(QObject *parent = nullptr, QTcpServer *ser = nullptr, QTcpSocket *cli = nullptr, QMutex* mutex = nullptr);
     ~Worker() override;
 
 public slots:
@@ -29,6 +30,7 @@ public slots:
 private:
     QTcpServer* server;     // 指向服务端
     QTcpSocket* client;     // 指向客户端
+    QMutex* socketMutex;    // 保护client的跨线程互斥锁
     QString name;           // 客户端名称(还未写客户端，暂时没有途径获取测试数据)
     QTimer* checkTime;       // 定时器
     const int punpingTime = 1000000;  // 设置最晚心跳时长为10000ms

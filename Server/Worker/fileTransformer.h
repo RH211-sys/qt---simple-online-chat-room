@@ -10,12 +10,13 @@
 #include <QTcpServer>
 #include <QFile>
 #include <QDir>
+#include <QMutex>
 #include "../Server/server.h"
 
 class FileTransformer : public QObject {
     Q_OBJECT
 public:
-    FileTransformer(QObject *parent = nullptr, Server *ser = nullptr, QTcpSocket *cli = nullptr);
+    FileTransformer(QObject *parent = nullptr, Server *ser = nullptr, QTcpSocket *cli = nullptr, QMutex* mutex = nullptr);
     ~FileTransformer() override;
 
     // 和服务器连通的信号
@@ -35,6 +36,7 @@ private:
     Server* server;     // 指向服务端
 
     QTcpSocket* client;     // 指向客户端
+    QMutex* socketMutex;    // 保护client的跨线程互斥锁
     const QString downloadFilePath = "../fileDepot/";   // 文件接收仓库地址名
     QDir downloadFileDepot;
 };
