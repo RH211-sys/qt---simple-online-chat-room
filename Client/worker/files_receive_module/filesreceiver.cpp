@@ -4,11 +4,12 @@
 #include "ui_FilesReceiver.h"
 
 
-FilesReceiver::FilesReceiver(QWidget *parent, serverSocket *ser, Client *cli) : QWidget(parent), ui(new Ui::FilesReceiver) {
+FilesReceiver::FilesReceiver(QWidget *parent, serverSocket *ser, Client *cli, QRecursiveMutex* mutex) : QWidget(parent), ui(new Ui::FilesReceiver) {
     ui->setupUi(this);
 
     targetServer = ser;
     localClient = cli;
+    socketMutex = mutex;
 }
 
 FilesReceiver::~FilesReceiver() {
@@ -32,6 +33,7 @@ void FilesReceiver::writeLog(QString log) {
 }
 
 void FilesReceiver::saveFile(QString fileName, qint64 fileSize) {
+    QMutexLocker locker(socketMutex);
     // 获取下载地址
     QString downloadDir; // 默认地址
     downloadDir = ui->downloadPathEdit->text() + fileName;
@@ -62,6 +64,7 @@ void FilesReceiver::bootProcess() {
 }
 
 void FilesReceiver::downloadFile() {
+    QMutexLocker locker(socketMutex);
     // B + "994" + fileName + INTERUPT + fileSize + INTERUPT + [data] + FILE_TRANSFER_END
     // 获取文件名
     QByteArray filenameB;
@@ -76,6 +79,7 @@ void FilesReceiver::downloadFile() {
 
 // 接收可下载文件(刷新)
 void FilesReceiver::receiveAvailableFiles() {
+    QMutexLocker locker(socketMutex);
     // B + "997" + bodySize + INTERUPT + body{fileName + INTERUPT + ...}
     QByteArray sizeBuf;
     char ch;
@@ -121,7 +125,9 @@ void FilesReceiver::on_btnDownload_clicked() {
     QString msg = FILE_TRANSFER_REQUEST;
     msg += FT_DOWNLOAD_REQ + fileName + FILE_TRANSFER_END;
     // 发送请求
+    QMutexLocker locker(socketMutex);
     targetServer->write(msg.toUtf8());
+    targetServer->flush();
 }
 
 // 发送获取可下载列表请求
@@ -134,7 +140,9 @@ void FilesReceiver::on_btnFlushList_clicked() {
     msg += FT_QUERY_FILES;
     msg += FILE_TRANSFER_END;
     // 发送
+    QMutexLocker locker(socketMutex);
     targetServer->write(msg.toUtf8());
+    targetServer->flush();
 }
 
 

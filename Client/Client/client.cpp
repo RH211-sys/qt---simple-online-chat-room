@@ -12,9 +12,12 @@ Client::Client(QWidget *parent) : QWidget(parent), ui(new Ui::Client) {
     stateElli = QRect(pos.x() + 50, pos.y() + 3, 5, 5);
     setDisConnectBtnState();
 
+    // 创建互斥锁，保护serverTar的跨线程访问
+    socketMutex = new QRecursiveMutex();
+
     // 创建文件传输线程和传输工人(发送和接收)
-    TransferWorker = new FilesTransFerer(nullptr, this, serverTar);
-    filesReceiver = new FilesReceiver(nullptr, serverTar, this);
+    TransferWorker = new FilesTransFerer(nullptr, this, serverTar, socketMutex);
+    filesReceiver = new FilesReceiver(nullptr, serverTar, this, socketMutex);
     fileTransferThread = new QThread(this);
 
     TransferWorker->moveToThread(fileTransferThread);
@@ -143,7 +146,10 @@ void Client::on_connectBtn_clicked() {
 }
 
 void Client::on_disConnectBtn_clicked() {
-    serverTar->disconnectFromHost();
+    {
+        QMutexLocker locker(socketMutex);
+        serverTar->disconnectFromHost();
+    }
     heartTime->stop();
     // ui状态清理
     setDisConnectBtnState();
@@ -158,7 +164,9 @@ void Client::on_sendBtn_clicked() {
     QByteArray msg = QByteArray(CHAT_INFO) + CHAT_BROADCAST
                    + QByteArray::number(body.size()) + INTERUPT
                    + body;
+    QMutexLocker locker(socketMutex);
     serverTar->write(msg);
+    serverTar->flush();
     ui->sendMsgInfo->clear();
     writeLog("数据已发送");
 }
@@ -179,20 +187,29 @@ void Client::isConnected() {
 #if 1
     // 开始向服务器发送心跳包
     heartTime->start(3000);     // 每3s发一次
-    serverTar->write(name.toUtf8());
+    {
+        QMutexLocker locker(socketMutex);
+        serverTar->write(name.toUtf8());
+        serverTar->flush();
+    }
 #endif
     writeLog("完成连接处理");
 }
 
 void Client::sendHeartPing() {
 #if 1
-    serverTar->write(PUNPING_INFO);
+    {
+        QMutexLocker locker(socketMutex);
+        serverTar->write(PUNPING_INFO);
+        serverTar->flush();
+    }
     heartTime->start(3000);     // 重置时间
     writeLog("已发送心跳包");
 #endif
 }
 
 void Client::receiveMsg() {
+    QMutexLocker locker(socketMutex);
     // 循环处理粘包：每次读一个完整消息，直到缓冲区空
     while (serverTar->bytesAvailable() > 0) {
         char flag;
@@ -328,7 +345,6 @@ void Client::receiveMsg() {
             } else if (subType == FT_QUERY_FAIL) {
                 // B + "995"  无body
                 filesReceiver->writeLog("暂无可用文件");
-                serverTar->read(1);
 
             } else if (subType == FT_SEND_FILE) {
                 // B + "994" + fileName + INTERUPT + fileSize + INTERUPT + [data] + FILE_TRANSFER_END
@@ -402,6 +418,7 @@ bool Client::eventFilter(QObject *obj, QEvent *event) {
 
 // 私信：QByteArray(CHAT_INFO) + CHAT_PRIVATE_REQ + targetName + INTERUPT + size + INTERUPT + body
 void Client::on_btnMsgPrivate_clicked() {
+    QMutexLocker locker(socketMutex);
     QString targetName = ui->privateUserEdit->text();
     if(serverTar->state() != QAbstractSocket::ConnectedState) {
         writeLog("未连接服务器");
@@ -413,6 +430,7 @@ void Client::on_btnMsgPrivate_clicked() {
                    + QByteArray::number(body.size()) + INTERUPT
                    + body;
     serverTar->write(msg);
+    serverTar->flush();
 }
 
 /* ==========================  文件传输函数模块 ========================== */

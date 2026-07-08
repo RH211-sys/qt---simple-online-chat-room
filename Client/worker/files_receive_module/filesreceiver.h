@@ -5,6 +5,7 @@
 #include <QDir>
 #include <QFileDialog>
 #include <QStringListModel>
+#include <QMutex>
 
 /* ==================== 基础协议标志 ==================== */
 #define CHAT_INFO "1"             // 聊天消息父标志
@@ -59,7 +60,7 @@ class FilesReceiver : public QWidget {
     friend class serverSocket;
 
 public:
-    explicit FilesReceiver(QWidget *parent = nullptr, serverSocket *ser = nullptr, Client *cli = nullptr);
+    explicit FilesReceiver(QWidget *parent = nullptr, serverSocket *ser = nullptr, Client *cli = nullptr, QRecursiveMutex* mutex = nullptr);
     ~FilesReceiver() override;
 
 public slots:
@@ -85,6 +86,7 @@ private:
 private:
     serverSocket* targetServer;
     Client* localClient;
+    QRecursiveMutex* socketMutex;
 
 };
 

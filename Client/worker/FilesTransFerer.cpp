@@ -15,11 +15,13 @@ static void fileTransfer(QFileInfo info, serverSocket *ser) {
     file.close();
     // 发送结束标记
     ser->write(FILE_TRANSFER_END);
+    ser->flush();
 }
 
-FilesTransFerer::FilesTransFerer(QObject *parent, Client *cli, serverSocket *ser) {
+FilesTransFerer::FilesTransFerer(QObject *parent, Client *cli, serverSocket *ser, QRecursiveMutex* mutex) {
     localClient = cli;
     targetServer = ser;
+    socketMutex = mutex;
 }
 
 FilesTransFerer::~FilesTransFerer() {
@@ -27,6 +29,7 @@ FilesTransFerer::~FilesTransFerer() {
 }
 
 void FilesTransFerer::TransferSharedFile(QFileInfo& info) {
+    QMutexLocker locker(socketMutex);
     // 获取文件信息
     QString filename = info.fileName();
     qint64 n = info.size();
@@ -42,6 +45,7 @@ void FilesTransFerer::TransferSharedFile(QFileInfo& info) {
 }
 
 void FilesTransFerer::TransferPrivateFile(QFileInfo& info, QString targetClientName) {
+    QMutexLocker locker(socketMutex);
     // 获取文件信息
     QString filename = info.fileName();
     qint64 n = info.size();

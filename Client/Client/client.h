@@ -19,6 +19,7 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QThread>
+#include <QMutex>
 
 
 /* ==================== 基础协议标志 ==================== */
@@ -137,6 +138,7 @@ private:
 
     /* ================= 文件传输模块 ================= */
     QThread* fileTransferThread;
+    QRecursiveMutex* socketMutex;  // 保护serverTar的跨线程互斥锁（递归锁）
     FilesTransFerer* TransferWorker;
     FilesReceiver* filesReceiver;
 

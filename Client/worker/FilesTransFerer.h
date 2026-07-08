@@ -6,6 +6,7 @@
 #include <QTcpSocket>
 #include <QTcpServer>
 #include <QDir>
+#include <QMutex>
 
 class serverSocket;
 class Client;  // 前置声明，替代 include
@@ -13,7 +14,7 @@ class Client;  // 前置声明，替代 include
 class FilesTransFerer : public QObject {
     Q_OBJECT
 public:
-    explicit FilesTransFerer(QObject *parent = nullptr, Client *cli = nullptr, serverSocket *ser = nullptr);
+    explicit FilesTransFerer(QObject *parent = nullptr, Client *cli = nullptr, serverSocket *ser = nullptr, QRecursiveMutex* mutex = nullptr);
     ~FilesTransFerer() override;
 
 public slots:
@@ -23,6 +24,7 @@ public slots:
 private:
     Client* localClient;
     serverSocket* targetServer;
+    QRecursiveMutex* socketMutex;
 
 };
 
