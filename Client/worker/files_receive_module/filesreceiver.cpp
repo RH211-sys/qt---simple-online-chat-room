@@ -35,7 +35,7 @@ void FilesReceiver::writeLog(QString log) {
 void FilesReceiver::saveFile(QString fileName, qint64 fileSize) {
     // 获取下载地址
     QString downloadDir; // 默认地址
-    downloadDir = ui->downloadPathEdit->text() + "/" + fileName;
+    downloadDir = ui->downloadPathEdit->text() + fileName;
 
     QFile file(downloadDir);
     file.open(QIODevice::WriteOnly);
@@ -112,7 +112,7 @@ void FilesReceiver::on_btnDownloadPathSearch_clicked() {
             this,                       // 父窗口
             "选择下载目录",              // 弹窗标题
             QDir::homePath()             // 默认打开的目录（用户主目录）
-    );
+    ) + "/";
     ui->downloadPathEdit->setText(filePath);
 }
 

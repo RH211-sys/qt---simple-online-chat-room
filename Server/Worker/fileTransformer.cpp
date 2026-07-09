@@ -175,3 +175,8 @@ void FileTransformer::doTransfer(QString filename) {
 
     server->writeLog("完成文件 [" + filename + "] 向用户 [" + server->client_name[client] + "] 的传输");
 }
+
+void FileTransformer::modifyDepot(QString path) {
+    downloadFilePath = path;
+    downloadFileDepot.setPath(downloadFilePath);
+}

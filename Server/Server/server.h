@@ -1,7 +1,3 @@
-//
-// Created by mechreuo on 2026/6/11.
-//
-
 #ifndef CUR_PROJECT_SERVER_H
 #define CUR_PROJECT_SERVER_H
 
@@ -20,6 +16,7 @@
 #include <QSqlQuery>
 #include <QStringListModel>
 #include <QMutex>
+#include <QFileDialog>
 
 /* ==================== 基础协议标志 ==================== */
 #define CHAT_INFO "1"             // 聊天消息父标志
@@ -85,6 +82,8 @@ public slots:
     void on_btnLogClear_clicked();
     void on_btnKick_clicked();      // 踢出按钮点击
     void on_btnSerMsgLimit_clicked(); // 设置最大消息数量
+    void on_btnSetFileReceivePath_clicked(); // 设置接收文件路径
+    void on_btnFileReceivePathSearcher_clicked(); // 设置接收文件路径
     // 网络函数
     void handleConnect();       // 处理用户连接
     void handleDisConnect(QTcpSocket *cli);    // 处理下线
@@ -100,6 +99,7 @@ public slots:
 
     signals:
     void receiveFile(QTcpSocket* cli);
+    void modifyDepot(QString path);
 
 private:
     void flushDB();     // 用于刷新数据库，可能在其他函数中调用

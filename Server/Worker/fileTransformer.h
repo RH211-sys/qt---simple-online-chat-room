@@ -29,6 +29,7 @@ public slots:
     // 槽函数
     void doReceiveFile(QTcpSocket* cli);   // 接收来自客户端的文件
     void doTransfer(QString filename);       // 将文件传送到指定客户端
+    void modifyDepot(QString path);         // 修改文件接收仓库
 
 private:
     QString saveFile(QTcpSocket* cli, const QString& originalName, qint64 fileSize);
@@ -37,7 +38,7 @@ private:
 
     QTcpSocket* client;     // 指向客户端
     QMutex* socketMutex;    // 保护client的跨线程互斥锁
-    const QString downloadFilePath = "../fileDepot/";   // 文件接收仓库地址名
+    QString downloadFilePath = "../fileDepot/";   // 文件接收仓库地址名
     QDir downloadFileDepot;
 };
 

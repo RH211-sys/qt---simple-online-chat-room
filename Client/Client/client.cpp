@@ -204,7 +204,7 @@ void Client::sendHeartPing() {
         serverTar->flush();
     }
     heartTime->start(3000);     // 重置时间
-    writeLog("已发送心跳包");
+    // writeLog("已发送心跳包");  // 不好看日志信息
 #endif
 }
 

@@ -212,6 +212,7 @@ void Server::handleConnect() {
     // 文件模块连接
     connect(fileTrans_cli, &FileTransformer::addNewPrivateFile, this, &Server::addNewPrivateFile);
     connect(fileTrans_cli, &FileTransformer::addNewSharedFile, this, &Server::addNewSharedFile);
+    connect(this, &Server::modifyDepot, fileTrans_cli, &FileTransformer::modifyDepot);
 
     // 连接文件传输的信号和槽
     connect(this, &Server::receiveFile, fileTrans_cli, &FileTransformer::doReceiveFile);
@@ -452,6 +453,22 @@ void Server::on_btnSerMsgLimit_clicked() {
     flushDB();
 }
 
+void Server::on_btnSetFileReceivePath_clicked() {
+    QString path = ui->fileReceivePathEdit->text();
+    emit modifyDepot(path);
+    writeLog("仓库路径修改成功！");
+}
+
+void Server::on_btnFileReceivePathSearcher_clicked() {
+    // 填入指定文件仓库路径
+    QString path = QFileDialog::getExistingDirectory(
+            this,                       // 父窗口
+            "选择文件仓库目录",              // 弹窗标题
+            QDir::homePath()             // 默认打开的目录（用户主目录）
+    ) + "/";
+    ui->fileReceivePathEdit->setText(path);
+}
+
 /* ========================= 文件传输模块(服务器) ======================== */
 
 void Server::addNewSharedFile(QTcpSocket *cli_source, QString fileName) {
@@ -483,6 +500,8 @@ void Server::addNewPrivateFile(QTcpSocket *cli_source, QString cliTargetName, QS
         cli_source->write(ack);
     }
 }
+
+
 
 
 
