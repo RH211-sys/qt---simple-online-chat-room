@@ -1,6 +1,6 @@
 #include "client.h"
 #include "ui_Client.h"
-#include "../worker/FilesTransFerer.h"
+#include "../worker/file_transfer_module/FilesTransFerer.h"
 #include "../worker/files_receive_module/filesreceiver.h"
 #include <QDebug>
 
@@ -189,7 +189,9 @@ void Client::isConnected() {
     heartTime->start(3000);     // 每3s发一次
     {
         QMutexLocker locker(socketMutex);
-        serverTar->write(name.toUtf8());
+        QByteArray nameBytes = name.toUtf8();
+        QByteArray firstBag = QByteArray(FIRST_BAG) + QByteArray::number(nameBytes.size()) + INTERUPT + nameBytes;
+        serverTar->write(firstBag);
         serverTar->flush();
     }
 #endif

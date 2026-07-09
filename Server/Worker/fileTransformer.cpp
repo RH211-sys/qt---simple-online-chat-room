@@ -61,7 +61,7 @@ void FileTransformer::doReceiveFile(QTcpSocket* cli) {
     /* ============== 文件上传模块 =============== */
     if (subType == FT_SHARED_UPLOAD) {
         // "A" + "000" + fileName + INTERUPT + fileSize + INTERUPT + [file data] + FILE_TRANSFER_END
-        QString fileName = QString::fromUtf8(readUntil(client, INTERUPT));
+        QString fileName = "[share]" + QString::fromUtf8(readUntil(client, INTERUPT));
         qint64 fileSize = readUntil(client, INTERUPT).toLongLong();
 
         QString savedName = saveFile(client, fileName, fileSize);
@@ -70,7 +70,7 @@ void FileTransformer::doReceiveFile(QTcpSocket* cli) {
     } else if (subType == FT_PRIVATE_UPLOAD) {
         // "A" + "001" + targetName + INTERUPT + fileName + INTERUPT + fileSize + INTERUPT + [file data] + FILE_TRANSFER_END
         QString targetName = QString::fromUtf8(readUntil(client, INTERUPT));
-        QString fileName = QString::fromUtf8(readUntil(client, INTERUPT));
+        QString fileName = "[private]" + QString::fromUtf8(readUntil(client, INTERUPT));    // 和共享文件区分开，防止冲突
         qint64 fileSize = readUntil(client, INTERUPT).toLongLong();
 
         // 双重保险：检查目标用户是否在线（客户端已做判断）

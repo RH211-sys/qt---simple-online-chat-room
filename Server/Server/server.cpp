@@ -242,21 +242,25 @@ void Server::receiveCliMsg(QByteArray _flag, QTcpSocket* cli) {
         cli->read(1);
         return;
     }
-    // 如果是第一个数据包，那么这个数据包是用户的name，需要存起来
-    auto it = client_firstBag_set.find(cli);
-    if(it != client_firstBag_set.end()) {
+    // 首包：用户名注册（FIRST_BAG + {size} + INTERUPT + {name}）
+    if(flag == FIRST_BAG) {
         QString name;
         {
             QMutexLocker locker(mutex);
-            // 注册用户名+随机值
-            name = cli->readAll();
+            cli->read(1);  // 消费 flag "0"
+            QByteArray sizeBuf;
+            char ch;
+            while (cli->getChar(&ch) && ch != INTERUPT[0]) sizeBuf.append(ch);
+            int nameSize = sizeBuf.toInt();
+            name = QString::fromUtf8(cli->read(nameSize));
         } // 读完释放锁，broadCast自己会加锁
         int id = QRandomGenerator::global()->bounded(1000, 10000);
         QString cli_name = name + '#' + QString::number(id);
         // 插入到红黑树和缓存
         this->client_name.insert(cli, cli_name);
-        client_firstBag_set.erase(it);
         name_to_ip.insert(cli_name, cli);
+        // 移除首包标记
+        client_firstBag_set.remove(cli);
         // 更新服务端的列表ui
         chaterList.append(client_name[cli]);
         chaterModel->setStringList(chaterList);

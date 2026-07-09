@@ -27,6 +27,7 @@
 #define PUNPING_INFO "2"         // 心跳包
 #define SERVER_CLOSE "3"         // 服务器关闭
 #define SERVER_KICK "4"          // 服务器踢人
+#define FIRST_BAG "0"             // 首包标志（注册用户名）
 #define FILE_TRANSFER_REQUEST "A" // 文件传输：客户端→服务端
 #define FILE_TRANSFER_RESULT "B" // 文件传输：服务端→客户端
 

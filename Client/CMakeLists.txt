@@ -21,8 +21,8 @@ add_executable(project_client main.cpp
         Client/client.ui
         serverSocket/serverSocket.cpp
         serverSocket/serverSocket.h
-        worker/FilesTransFerer.cpp
-        worker/FilesTransFerer.h
+        worker/file_transfer_module/FilesTransFerer.cpp
+        worker/file_transfer_module/FilesTransFerer.h
         worker/files_receive_module/filesreceiver.cpp
         worker/files_receive_module/filesreceiver.h
         worker/files_receive_module/filesreceiver.ui

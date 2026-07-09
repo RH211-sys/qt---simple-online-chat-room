@@ -19,6 +19,7 @@
 #include <QFileDialog>
 
 /* ==================== 基础协议标志 ==================== */
+#define FIRST_BAG "0"             // 首包标志（注册用户名）
 #define CHAT_INFO "1"             // 聊天消息父标志
 #define PUNPING_INFO "2"         // 心跳包
 #define SERVER_CLOSE "3"         // 服务器关闭

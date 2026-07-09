@@ -1,6 +1,6 @@
 #include "filesreceiver.h"
 #include "../../Client/client.h"
-#include "../FilesTransFerer.h"
+#include "../file_transfer_module/FilesTransFerer.h"
 #include "ui_FilesReceiver.h"
 
 
