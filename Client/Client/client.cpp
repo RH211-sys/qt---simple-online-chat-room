@@ -309,6 +309,7 @@ void Client::receiveMsg() {
             while (serverTar->getChar(&ch) && ch != INTERUPT[0]) content.append(ch);
             if (!content.isEmpty()) ui->msgInfo->addItem(QString::fromUtf8(content));
             writeLog("私信已发送");
+            ui->msgInfo->addItem("私发成功");
 
         } else if (flag == SEARCH_FAILED[0]) {
             // 私信发送失败回执
@@ -459,7 +460,7 @@ void Client::on_btnFileShared_clicked() {
     }
     // 文件存在，开始发送
     /* =================== 文件上传模块 ================== */
-    emit TransferSharedFile(info);
+    emit TransferSharedFile(info.absoluteFilePath());
 }
 
 // 文件私发
@@ -482,7 +483,7 @@ void Client::on_btnFilePrivate_clicked() {
     }
     // 文件存在，开始发送
     /* =================== 文件上传模块 ================== */
-    emit TransferPrivateFile(info, name);
+    emit TransferPrivateFile(info.absoluteFilePath(), name);
 }
 
 // 文件接收

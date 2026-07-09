@@ -110,8 +110,8 @@ public slots:
 
     /* ================== 客户端发射信号(跨线程沟通) =================== */
     signals:
-    void TransferSharedFile(QFileInfo& fileInfo);
-    void TransferPrivateFile(QFileInfo& fileInfo, QString targetClientName);
+    void TransferSharedFile(QString filePath);
+    void TransferPrivateFile(QString filePath, QString targetClientName);
     void receiveFile();
     void getFiles();
     void downloadFile();

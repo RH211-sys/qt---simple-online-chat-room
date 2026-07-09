@@ -28,9 +28,10 @@ FilesTransFerer::~FilesTransFerer() {
 
 }
 
-void FilesTransFerer::TransferSharedFile(QFileInfo& info) {
+void FilesTransFerer::TransferSharedFile(QString filePath) {
     QMutexLocker locker(socketMutex);
     // 获取文件信息
+    QFileInfo info(filePath);
     QString filename = info.fileName();
     qint64 n = info.size();
 
@@ -44,9 +45,10 @@ void FilesTransFerer::TransferSharedFile(QFileInfo& info) {
     fileTransfer(info, targetServer);
 }
 
-void FilesTransFerer::TransferPrivateFile(QFileInfo& info, QString targetClientName) {
+void FilesTransFerer::TransferPrivateFile(QString filePath, QString targetClientName) {
     QMutexLocker locker(socketMutex);
     // 获取文件信息
+    QFileInfo info(filePath);
     QString filename = info.fileName();
     qint64 n = info.size();
 

@@ -50,12 +50,13 @@ QString FileTransformer::saveFile(QTcpSocket* cli, const QString& originalName, 
 
 void FileTransformer::doReceiveFile(QTcpSocket* cli) {
     server->writeLog("doReceiveFile subType: " + QString::fromUtf8(client->peek(4)));
+    QString subType;
     if(cli != client) return;
+
     QMutexLocker locker(socketMutex);
     cli->read(1);
-
     // 读取子类型（3字节）
-    QString subType = QString::fromUtf8(client->read(3));
+    subType = QString::fromUtf8(client->read(3));
 
     /* ============== 文件上传模块 =============== */
     if (subType == FT_SHARED_UPLOAD) {
@@ -147,7 +148,6 @@ void FileTransformer::doReceiveFile(QTcpSocket* cli) {
 }
 
 void FileTransformer::doTransfer(QString filename) {
-    QMutexLocker locker(socketMutex);
     // 获取本地文件信息
     QFileInfo info(downloadFilePath + filename);
     qint64 fileSize = info.size();
