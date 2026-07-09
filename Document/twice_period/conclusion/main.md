@@ -71,16 +71,16 @@ Client ──owns──► serverSocket* serverTar
 
 ### 客户端
 
-| 发送者         | 信号                                       | 接收者            | 槽                      | 类型       | 说明                        |
-| -------------- | ------------------------------------------ | ----------------- | ----------------------- | ---------- | --------------------------- |
-| `serverSocket` | `connected`                                | `Client`          | `isConnected`           | Direct     | 同线程，连接成功            |
-| `serverSocket` | `readyRead`                                | `Client`          | `receiveMsg`            | Direct     | 同线程，数据可读            |
-| `QTimer`       | `timeout`                                  | `Client`          | `sendHeartPing`         | Direct     | 同线程，定时心跳            |
-| `Client`       | `TransferSharedFile(QFileInfo&)`           | `FilesTransFerer` | `TransferSharedFile`    | **Queued** | 主线程→子线程，上传共享文件 |
-| `Client`       | `TransferPrivateFile(QFileInfo&, QString)` | `FilesTransFerer` | `TransferPrivateFile`   | **Queued** | 主线程→子线程，上传私发文件 |
-| `Client`       | `receiveFile()`                            | `FilesReceiver`   | `bootProcess`           | Direct     | 同线程，打开文件接收窗口    |
-| `Client`       | `getFiles()`                               | `FilesReceiver`   | `receiveAvailableFiles` | Direct     | 同线程，解析文件列表        |
-| `Client`       | `downloadFile()`                           | `FilesReceiver`   | `downloadFile`          | Direct     | 同线程，解析文件数据        |
+| 发送者         | 信号                                    | 接收者            | 槽                      | 类型       | 说明                        |
+| -------------- | --------------------------------------- | ----------------- | ----------------------- | ---------- | --------------------------- |
+| `serverSocket` | `connected`                             | `Client`          | `isConnected`           | Direct     | 同线程，连接成功            |
+| `serverSocket` | `readyRead`                             | `Client`          | `receiveMsg`            | Direct     | 同线程，数据可读            |
+| `QTimer`       | `timeout`                               | `Client`          | `sendHeartPing`         | Direct     | 同线程，定时心跳            |
+| `Client`       | `TransferSharedFile(QString)`           | `FilesTransFerer` | `TransferSharedFile`    | **Queued** | 主线程→子线程，上传共享文件 |
+| `Client`       | `TransferPrivateFile(QString, QString)` | `FilesTransFerer` | `TransferPrivateFile`   | **Queued** | 主线程→子线程，上传私发文件 |
+| `Client`       | `receiveFile()`                         | `FilesReceiver`   | `bootProcess`           | Direct     | 同线程，打开文件接收窗口    |
+| `Client`       | `getFiles()`                            | `FilesReceiver`   | `receiveAvailableFiles` | Direct     | 同线程，解析文件列表        |
+| `Client`       | `downloadFile()`                        | `FilesReceiver`   | `downloadFile`          | Direct     | 同线程，解析文件数据        |
 
 ### 系统
 
@@ -95,7 +95,7 @@ Client ──owns──► serverSocket* serverTar
 | 1    | 点击刷新后客户端 socket 不可读            | 主线程和 cli_thread 同时对同一 `QTcpSocket` 执行 `read()`/`peek()`/`write()`，QIODevice 内部状态损坏 | 每 socket 加 `QMutex`，所有读写操作加锁保护             |
 | 2    | 加锁后服务端 write 返回成功但客户端收不到 | `QTcpSocket::write()` 将数据放入 Qt 内部写缓冲，子线程没有事件循环驱动 flush | 所有 `write()` 后紧跟 `flush()`（共 8 处）              |
 | 3    | `doTransfer` 获取锁时卡死                 | `doReceiveFile` 持锁后调用 `doTransfer`，后者再次 `QMutexLocker` 同一把非递归锁 → 自死锁 | 删除 `doTransfer` 内部的 `QMutexLocker`（调用方已持锁） |
-| 4    | `QFileInfo` 信号无法跨线程传递            | `QFileInfo` 未注册元类型，QueuedConnection 无法序列化参数    | 构造中加 `qRegisterMetaType<QFileInfo>()`               |
+| 4    | `QFileInfo` 信号无法跨线程传递            | `QFileInfo` 未注册元类型，QueuedConnection 无法序列化参数    | 改参数为QString表示路径                                 |
 | 5    | `FT_QUERY_FAIL` 分支吞字节                | `serverTar->read(1)` 消费了下一条消息的 flag                 | 删除该行                                                |
 | 6    | 首包用户名依赖 `readAll()`                | TCP 分片时可能截断                                           | 改为 `{size} + INTERUPT + {name}` 定长协议              |
 
