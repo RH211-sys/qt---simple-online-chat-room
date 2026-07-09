@@ -16,7 +16,7 @@
 
 ![下载模块](https://raw.giteeusercontent.com/how-to-name/qt---simple-online-chat-room/raw/master/Document/twice_period/images/image-20260709220256935.png?metadata=eyJyIjoibWFzdGVyIiwiZnAiOiJEb2N1bWVudC90d2ljZV9wZXJpb2QvaW1hZ2VzL2ltYWdlLTIwMjYwNzA5MjIwMjU2OTM1LnBuZyIsInVpZCI6MTYyNTExNzksInBpZCI6NDg0Nzc2MDYsInN0byI6ImdpdC1zaGFyZGluZy1zdG8tMTB0LTAzMCIsInJwIjoicmVwb3MvOGEvMGYvOGEwZmMxYzdlZmE1YjE3ZTVjOWFhNGEwY2VmMzllNWM3YmU1ZjFiZDNhNmI1MjAyMDhkZWIxZjAzYWFjNTZkMS5naXQiLCJpc3AiOnRydWUsImV4cGlyZV9hdCI6MTc4MzYwODAwMH0&signature=h6_mTQ2ycErqmEz-pylvCYXPpoUbQUp2nzXTke7Leh0)
 
-> 一个是刚刚接收共享文件的，一个是刚刚接收共享文件和私发文件的
+> 左边是前一张图接收共享文件的，右边是前一张图接收共享文件和私发文件的
 > 即使客户端退出了，它留下的共享文件仍然可以给新来的用户下载，私发文件仍然可以给目标用户(只要它还存在)
 
 ### 注意事项
