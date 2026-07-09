@@ -30,7 +30,7 @@ FileTransformer::~FileTransformer() {
 // 将接收到的文件数据保存到磁盘，返回服务端存储的文件名
 QString FileTransformer::saveFile(QTcpSocket* cli, const QString& originalName, qint64 fileSize) {
     // 用客户端名作为前缀，避免重名文件互相覆盖
-    QString savedName = server->client_name[cli] + '(' + originalName + ')';
+    QString savedName = server->client_name[cli] + '-' + originalName;
     QFile file(downloadFilePath + savedName);
     file.open(QIODevice::WriteOnly);
 
