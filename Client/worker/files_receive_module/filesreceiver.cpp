@@ -33,7 +33,6 @@ void FilesReceiver::writeLog(QString log) {
 }
 
 void FilesReceiver::saveFile(QString fileName, qint64 fileSize) {
-    QMutexLocker locker(socketMutex);
     // 获取下载地址
     QString downloadDir; // 默认地址
     downloadDir = ui->downloadPathEdit->text() + fileName;
