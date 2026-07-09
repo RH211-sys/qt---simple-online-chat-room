@@ -8,13 +8,13 @@
 
 **总体：**
 
-<img src="D:Document\twice_period\readme_images_temp\image-20260709220108769.png" alt="image-20260709220108769" />
+![总体效果](images/image-20260709220108769.png)
 
 > 白色的是客户端，黑色的是服务端
 
 **客户端的下载模块**
 
-<img src="D:Document\twice_period\readme_images_temp\image-20260709220256935.png" alt="image-20260709220256935" />
+![下载模块](images/image-20260709220256935.png)
 
 > 一个是刚刚接收共享文件的，一个是刚刚接收共享文件和私发文件的
 > 即使客户端退出了，它留下的共享文件仍然可以给新来的用户下载，私发文件仍然可以给目标用户(只要它还存在)
